@@ -10,7 +10,12 @@
     "start": "electron .",
     "demo": "electron . --demo",
     "test": "node --test",
-    "dist": "electron-builder --win"
+    "dist": "electron-builder --win",
+    "lab:up": "docker compose -f lab/zabbix/docker-compose.yml up -d",
+    "lab:down": "docker compose -f lab/zabbix/docker-compose.yml down",
+    "lab:setup": "node lab/zabbix/lab.js setup",
+    "lab:scenario": "node lab/zabbix/lab.js scenario",
+    "lab:status": "node lab/zabbix/lab.js status"
   },
   "devDependencies": {
     "electron": "^44.7.0",

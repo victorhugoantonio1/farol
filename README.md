@@ -77,9 +77,12 @@ src/config.js      configurações + tokens criptografados
 src/demo.js        dados de exemplo
 renderer/          interface da ilha, o Vigia (bot.js) e a tela de configurações
 test/              testes dos clientes contra servidores falsos
+lab/zabbix/        Zabbix local no Docker + script que simula problemas pela API
 ```
 
 Testes: `npm test`.
+
+Quer testar contra um Zabbix de verdade sem mexer em produção? O [laboratório](lab/zabbix/README.md) sobe um Zabbix 7.0 no Docker e simula problemas pela API.
 
 ## Limitações conhecidas
 
