@@ -15,7 +15,7 @@ Feito pra quem trabalha em NOC / suporte de infra e vive alternando entre o Zabb
 - **Notificação do Windows** para problemas novos de severidade Alta ou Desastre.
 - **Vigia**: um robozinho que segue o mouse, olha pra linha sob o cursor, leva susto com alerta novo, fica vermelho no Desastre, acena quando você reconhece e desliga quando está tudo calmo. Clique nele pra cutucar (três vezes rápido e ele dá glitch). Dá pra desligar nas configurações.
 
-  ![O Vigia reagindo: segue o mouse, leva susto, glitch, alarme, aceno e desliga](docs/vigia.gif)
+  ![O Vigia reagindo: olha a lista, glitch ao ser cutucado, alarme com um Desastre, aceno ao reconhecer e desliga quando fica tudo calmo](docs/vigia.gif)
 
 - **O que mostrar**: alertas e chamados, só alertas ou só chamados.
 - **Modo demo** com dados de exemplo, pra ver funcionando sem configurar nada.
