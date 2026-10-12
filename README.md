@@ -2,7 +2,7 @@
 
 Uma barrinha discreta no topo da tela que mostra os **alertas do Zabbix** e os **chamados do GLPI**. Passou o mouse, ela abre. Tem alerta grave, a luz muda de cor e a barra diz qual é o host, sem você precisar abrir aba nenhuma.
 
-![Farol aberto, com um alerta de Desastre em destaque](docs/preview.png)
+![Farol aberto, com um alerta de Desastre em destaque e o Vigia de olho](docs/preview.png)
 
 Feito pra quem trabalha em NOC / suporte de infra e vive alternando entre o Zabbix e o GLPI.
 
@@ -14,6 +14,9 @@ Feito pra quem trabalha em NOC / suporte de infra e vive alternando entre o Zabb
 - **Chamados do GLPI**: os não solucionados, opcionalmente só os atribuídos a você, ordenados por prioridade.
 - **Notificação do Windows** para problemas novos de severidade Alta ou Desastre.
 - **Vigia**: um robozinho que segue o mouse, olha pra linha sob o cursor, leva susto com alerta novo, fica vermelho no Desastre, acena quando você reconhece e desliga quando está tudo calmo. Clique nele pra cutucar (três vezes rápido e ele dá glitch). Dá pra desligar nas configurações.
+
+  ![O Vigia reagindo: segue o mouse, leva susto, glitch, alarme, aceno e desliga](docs/vigia.gif)
+
 - **O que mostrar**: alertas e chamados, só alertas ou só chamados.
 - **Modo demo** com dados de exemplo, pra ver funcionando sem configurar nada.
 - `Ctrl` + `Alt` + `F` fixa a barra aberta; o ícone na bandeja esconde/mostra.
