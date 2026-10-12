@@ -16,6 +16,8 @@ const DEFAULTS = {
   demo: true,
   pollSeconds: 30,
   notify: true,
+  // display: 'both' | 'zabbix' | 'glpi'; highlight: alerta grave toma a pílula; mascot: coruja
+  ui: { display: 'both', highlight: true, mascot: true },
   zabbix: { enabled: false, url: '', token: '', legacyAuth: false, insecure: false, minSeverity: 2 },
   glpi: { enabled: false, url: '', userToken: '', appToken: '', onlyMine: true, insecure: false },
 };
@@ -103,6 +105,7 @@ function createStore({ dir, safeStorage }) {
       if (incoming === undefined || incoming === '') next[section][key] = current[section][key];
     }
     next.pollSeconds = Math.min(600, Math.max(10, Number(next.pollSeconds) || 30));
+    if (!['both', 'zabbix', 'glpi'].includes(next.ui.display)) next.ui.display = 'both';
     return next;
   }
 

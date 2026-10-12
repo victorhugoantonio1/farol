@@ -155,10 +155,15 @@ function isDemo(cfg) {
   return FORCE_DEMO || cfg.demo;
 }
 
+// estado + preferências de exibição, que a ilha precisa pra se desenhar
+function snapshotForUi() {
+  return { ...state, ui: store ? store.get().ui : undefined };
+}
+
 function broadcast() {
   allowedUrls.clear();
   for (const it of [...state.zabbix.items, ...state.glpi.items]) if (it.url) allowedUrls.add(it.url);
-  if (island && !island.isDestroyed()) island.webContents.send('state', state);
+  if (island && !island.isDestroyed()) island.webContents.send('state', snapshotForUi());
   updateTrayTooltip();
 }
 
@@ -296,7 +301,7 @@ ipcMain.on('island:interactive', (e, on) => {
   setInteractive(!!on);
 });
 
-ipcMain.handle('island:state', () => state);
+ipcMain.handle('island:state', () => snapshotForUi());
 ipcMain.on('island:refresh', () => poll());
 ipcMain.on('island:settings', () => openSettings());
 ipcMain.on('island:unpin', (e) => {
@@ -332,9 +337,14 @@ ipcMain.handle('settings:get', (e) => {
 
 ipcMain.handle('settings:save', (e, changes) => {
   if (!fromWindow(e, settingsWin)) return { ok: false, message: 'Origem inválida' };
+  const before = store.get();
   store.save(changes);
   buildTrayMenu();
-  restartPolling();
+  // mudou só a aparência? redesenha na hora, sem refazer a coleta
+  const after = store.get();
+  const onlyUi = JSON.stringify({ ...before, ui: null }) === JSON.stringify({ ...after, ui: null });
+  if (onlyUi) broadcast();
+  else restartPolling();
   return { ok: true };
 });
 

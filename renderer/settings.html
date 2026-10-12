@@ -30,6 +30,27 @@
       </section>
 
       <section>
+        <h2>Aparência</h2>
+        <label class="field">
+          <b>O que a barra mostra</b>
+          <select id="ui.display">
+            <option value="both">Alertas e chamados</option>
+            <option value="zabbix">Só alertas (Zabbix)</option>
+            <option value="glpi">Só chamados (GLPI)</option>
+          </select>
+          <small>Vale pra barra recolhida e pras abas do painel.</small>
+        </label>
+        <label class="row switch">
+          <span><b>Destacar alerta grave</b><small>Em Alta ou Desastre, a barra mostra o host no lugar dos números.</small></span>
+          <input type="checkbox" id="ui.highlight" />
+        </label>
+        <label class="row switch">
+          <span><b>Vigia</b><small>O robozinho que fica de olho nos alertas e desliga quando está tudo calmo.</small></span>
+          <input type="checkbox" id="ui.mascot" />
+        </label>
+      </section>
+
+      <section>
         <div class="section-head">
           <h2>Zabbix</h2>
           <label class="switch inline"><input type="checkbox" id="zabbix.enabled" /> Ativo</label>

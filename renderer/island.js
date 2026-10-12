@@ -11,6 +11,26 @@ let openTimer = null;
 let closeTimer = null;
 let heroItem = null;
 
+// o vigia: um no card de destaque, outro no estado calmo
+const heroBot = createBot($('hero-bot'));
+const calmBot = createBot($('calm-bot'));
+calmBot.setMood('sleep');
+
+const UI_DEFAULT = { display: 'both', highlight: true, mascot: true };
+
+function ui(s) {
+  return { ...UI_DEFAULT, ...((s && s.ui) || {}) };
+}
+
+// o que cada modo de exibição considera
+function shows(s, source) {
+  const d = ui(s).display;
+  return d === 'both' || d === source;
+}
+
+// prioridade do GLPI virando "nível" da luz quando a barra mostra só chamados
+const PRIO_LEVEL = { 1: 1, 2: 1, 3: 2, 4: 4, 5: 5, 6: 5 };
+
 // ---------- utilidades ----------
 
 function el(tag, cls, text) {
@@ -84,9 +104,13 @@ island.addEventListener('mouseleave', () => {
 // ---------- pílula ----------
 
 function worstLevel(s) {
-  const open = openProblems(s);
-  if (open.length) return String(Math.max(...open.map((p) => p.severity)));
-  if (s.zabbix.error || s.glpi.error) return 'error';
+  if (shows(s, 'zabbix')) {
+    const open = openProblems(s);
+    if (open.length) return String(Math.max(...open.map((p) => p.severity)));
+  } else if (s.glpi.items.length) {
+    return String(Math.max(...s.glpi.items.map((t) => PRIO_LEVEL[t.priority] ?? 0)));
+  }
+  if ((shows(s, 'zabbix') && s.zabbix.error) || (shows(s, 'glpi') && s.glpi.error)) return 'error';
   return 'ok';
 }
 
@@ -100,9 +124,9 @@ function renderSummary(s) {
     return;
   }
 
-  // alerta grave aberto: a pílula mostra qual é
+  // alerta grave aberto: a pílula mostra qual é (se essa opção estiver ligada)
   const worst = sortedProblems(openProblems(s))[0];
-  if (worst && worst.severity >= 4) {
+  if (ui(s).highlight && shows(s, 'zabbix') && worst && worst.severity >= 4) {
     island.classList.add('alerting');
     summary.append(el('b', null, worst.severityLabel));
     summary.append(el('span', 'sep', '·'));
@@ -110,9 +134,12 @@ function renderSummary(s) {
     return;
   }
 
+  const z = openProblems(s).length;
+  const g = s.glpi.items.length;
   const parts = [];
-  if (s.zabbix.enabled) parts.push(`${s.zabbix.items.length} alerta${s.zabbix.items.length === 1 ? '' : 's'}`);
-  if (s.glpi.enabled) parts.push(`${s.glpi.items.length} chamado${s.glpi.items.length === 1 ? '' : 's'}`);
+  if (s.zabbix.enabled && shows(s, 'zabbix')) parts.push(`${z} alerta${z === 1 ? '' : 's'}`);
+  if (s.glpi.enabled && shows(s, 'glpi')) parts.push(`${g} chamado${g === 1 ? '' : 's'}`);
+  if (!parts.length) parts.push(shows(s, 'zabbix') ? 'Zabbix desativado' : 'GLPI desativado');
   parts.forEach((p, i) => {
     if (i) summary.append(el('span', 'sep', '·'));
     summary.append(el('span', null, p));
@@ -126,6 +153,11 @@ function renderHero(item) {
   const hero = $('hero');
   hero.classList.toggle('hidden', !item);
   if (!item) return;
+
+  const mascot = ui(state).mascot;
+  $('hero-bot').classList.toggle('hidden', !mascot);
+  $('hero-orb').classList.toggle('hidden', mascot);
+  heroBot.setMood(item.source === 'zabbix' && item.severity >= 4 ? 'alarm' : 'watch');
 
   const meta = $('hero-meta');
   meta.textContent = '';
@@ -166,6 +198,10 @@ function row(item) {
   li.append(el('span', 'where', item.source === 'zabbix' ? item.hosts.join(', ') : `#${item.number} · ${item.statusLabel}`));
   li.append(el('span', 'age', ago(item.source === 'zabbix' ? item.since : item.updated || item.since)));
   li.addEventListener('click', () => farol.openUrl(item.url));
+  li.addEventListener('mouseenter', () => {
+    const r = li.getBoundingClientRect();
+    heroBot.lookAt(r.left + r.width * 0.35, r.top + r.height / 2);
+  });
   return li;
 }
 
@@ -197,9 +233,21 @@ function renderPanel(s) {
   const quiet = calm && items.length === 0;
   $('calm').classList.toggle('hidden', !quiet);
   island.classList.toggle('quiet', quiet);
+  const mascot = ui(s).mascot;
+  $('calm-bot').classList.toggle('hidden', !mascot);
+  $('calm-orb').classList.toggle('hidden', mascot);
   if (!src.enabled) $('calm-text').textContent = `${tab === 'zabbix' ? 'Zabbix' : 'GLPI'} desativado nas configurações.`;
   else if (tab === 'zabbix') $('calm-text').textContent = 'Nenhum alerta pendente. Tudo calmo.';
   else $('calm-text').textContent = 'Nenhum chamado aberto.';
+}
+
+function applyDisplay(s) {
+  const d = ui(s).display;
+  if (d !== 'both' && tab !== d) {
+    tab = d;
+    document.querySelectorAll('.tab').forEach((x) => x.classList.toggle('active', x.dataset.tab === tab));
+  }
+  document.querySelectorAll('.tab').forEach((x) => x.classList.toggle('hidden', !shows(s, x.dataset.tab)));
 }
 
 function renderHeader(s) {
@@ -213,6 +261,7 @@ function renderHeader(s) {
 
 function render() {
   if (!state) return;
+  applyDisplay(state);
   island.dataset.level = worstLevel(state);
   renderSummary(state);
   renderHeader(state);
@@ -250,6 +299,7 @@ $('hero-ack').addEventListener('click', async () => {
   btn.disabled = true;
   btn.textContent = 'Reconhecendo…';
   const res = await farol.acknowledge(heroItem.eventid);
+  if (res.ok) heroBot.celebrate();
   if (!res.ok) {
     btn.disabled = false;
     btn.textContent = 'Reconhecer';
@@ -259,6 +309,13 @@ $('hero-ack').addEventListener('click', async () => {
   }
   // em caso de sucesso o processo principal manda o estado novo
 });
+
+$('panel').addEventListener('mousemove', (e) => {
+  if (e.target.closest('.row')) return; // nas linhas, ela olha pra linha
+  heroBot.lookAt(e.clientX, e.clientY);
+});
+$('list').addEventListener('mouseleave', () => heroBot.lookDown());
+island.addEventListener('mouseleave', () => heroBot.lookDown());
 
 farol.onState((s) => {
   state = s;
@@ -273,6 +330,7 @@ farol.onPinned((p) => {
 });
 
 farol.onAlert(() => {
+  heroBot.jolt();
   island.classList.remove('ping');
   void island.offsetWidth;
   island.classList.add('ping');

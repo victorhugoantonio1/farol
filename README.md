@@ -13,6 +13,8 @@ Feito pra quem trabalha em NOC / suporte de infra e vive alternando entre o Zabb
 - **Card de destaque**: ao abrir, o alerta mais grave vem em cima com **Reconhecer** (ack no Zabbix) e **Abrir**. O resto fica numa lista compacta.
 - **Chamados do GLPI**: os não solucionados, opcionalmente só os atribuídos a você, ordenados por prioridade.
 - **Notificação do Windows** para problemas novos de severidade Alta ou Desastre.
+- **Vigia**: um robozinho que segue o mouse, olha pra linha sob o cursor, leva susto com alerta novo, fica vermelho no Desastre, acena quando você reconhece e desliga quando está tudo calmo. Clique nele pra cutucar (três vezes rápido e ele dá glitch). Dá pra desligar nas configurações.
+- **O que mostrar**: alertas e chamados, só alertas ou só chamados.
 - **Modo demo** com dados de exemplo, pra ver funcionando sem configurar nada.
 - `Ctrl` + `Alt` + `F` fixa a barra aberta; o ícone na bandeja esconde/mostra.
 
@@ -70,7 +72,7 @@ src/zabbix.js      cliente JSON-RPC do Zabbix
 src/glpi.js        cliente REST do GLPI
 src/config.js      configurações + tokens criptografados
 src/demo.js        dados de exemplo
-renderer/          interface da ilha e tela de configurações
+renderer/          interface da ilha, o Vigia (bot.js) e a tela de configurações
 test/              testes dos clientes contra servidores falsos
 ```
 
