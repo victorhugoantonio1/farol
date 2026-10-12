@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'" />
+    <title>Farol – Configurações</title>
+    <link rel="stylesheet" href="settings.css" />
+  </head>
+  <body>
+    <main>
+      <h1><span class="mark"></span>Farol</h1>
+      <p class="lead">Alertas do Zabbix e chamados do GLPI numa barrinha no topo da tela. Passe o mouse em cima pra abrir; <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>F</kbd> fixa aberta.</p>
+
+      <div id="warn-crypto" class="warn hidden">A criptografia do sistema não está disponível; os tokens vão ficar salvos sem criptografia neste computador.</div>
+
+      <section>
+        <h2>Geral</h2>
+        <label class="row switch">
+          <span><b>Modo demo</b><small>Mostra dados de exemplo em vez de buscar nos servidores.</small></span>
+          <input type="checkbox" id="demo" />
+        </label>
+        <label class="row switch">
+          <span><b>Notificar alertas graves</b><small>Notificação do Windows para problemas novos de severidade Alta ou Desastre.</small></span>
+          <input type="checkbox" id="notify" />
+        </label>
+        <label class="row">
+          <span><b>Atualizar a cada</b><small>Entre 10 e 600 segundos.</small></span>
+          <span class="unit"><input type="number" id="pollSeconds" min="10" max="600" step="5" /> s</span>
+        </label>
+      </section>
+
+      <section>
+        <div class="section-head">
+          <h2>Zabbix</h2>
+          <label class="switch inline"><input type="checkbox" id="zabbix.enabled" /> Ativo</label>
+        </div>
+        <label class="field">
+          <b>URL do Zabbix</b>
+          <input type="url" id="zabbix.url" placeholder="https://zabbix.empresa.local" spellcheck="false" />
+          <small>O endereço do frontend. O caminho <code>/api_jsonrpc.php</code> é adicionado sozinho.</small>
+        </label>
+        <label class="field">
+          <b>Token de API</b>
+          <input type="password" id="zabbix.token" autocomplete="off" spellcheck="false" />
+          <small id="zabbix.token-hint">Crie em Usuários → Tokens de API. Pra só ver os alertas, leitura basta; o botão "Reconhecer" precisa de permissão de escrita no host.</small>
+        </label>
+        <label class="field">
+          <b>Severidade mínima</b>
+          <select id="zabbix.minSeverity">
+            <option value="0">Não classificado</option>
+            <option value="1">Informação</option>
+            <option value="2">Atenção</option>
+            <option value="3">Média</option>
+            <option value="4">Alta</option>
+            <option value="5">Desastre</option>
+          </select>
+        </label>
+        <label class="check"><input type="checkbox" id="zabbix.legacyAuth" /> Zabbix anterior ao 6.4 (autenticação no corpo da requisição)</label>
+        <label class="check"><input type="checkbox" id="zabbix.insecure" /> Aceitar certificado autoassinado</label>
+        <div class="test">
+          <button class="secondary" data-test="zabbix">Testar conexão</button>
+          <span class="result" id="result-zabbix"></span>
+        </div>
+      </section>
+
+      <section>
+        <div class="section-head">
+          <h2>GLPI</h2>
+          <label class="switch inline"><input type="checkbox" id="glpi.enabled" /> Ativo</label>
+        </div>
+        <label class="field">
+          <b>URL do GLPI</b>
+          <input type="url" id="glpi.url" placeholder="https://glpi.empresa.local" spellcheck="false" />
+          <small>O caminho <code>/apirest.php</code> é adicionado sozinho. A API precisa estar habilitada em Configurar → Geral → API.</small>
+        </label>
+        <label class="field">
+          <b>Token de usuário</b>
+          <input type="password" id="glpi.userToken" autocomplete="off" spellcheck="false" />
+          <small id="glpi.userToken-hint">Fica no seu perfil, em Configurações → Chaves de acesso remoto → Token da API.</small>
+        </label>
+        <label class="field">
+          <b>App-Token <span class="opt">(opcional)</span></b>
+          <input type="password" id="glpi.appToken" autocomplete="off" spellcheck="false" />
+          <small id="glpi.appToken-hint">Só se o cliente de API do GLPI exigir.</small>
+        </label>
+        <label class="check"><input type="checkbox" id="glpi.onlyMine" /> Só chamados atribuídos a mim</label>
+        <label class="check"><input type="checkbox" id="glpi.insecure" /> Aceitar certificado autoassinado</label>
+        <div class="test">
+          <button class="secondary" data-test="glpi">Testar conexão</button>
+          <span class="result" id="result-glpi"></span>
+        </div>
+      </section>
+    </main>
+
+    <footer class="bar">
+      <span id="saved" class="saved"></span>
+      <button id="save" class="primary">Salvar</button>
+    </footer>
+
+    <script src="settings.js"></script>
+  </body>
+</html>

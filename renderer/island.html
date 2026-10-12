@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:" />
+    <title>Farol</title>
+    <link rel="stylesheet" href="island.css" />
+  </head>
+  <body>
+    <div id="island" data-level="ok">
+      <!-- recolhida -->
+      <div id="pill">
+        <span class="light" aria-hidden="true"><span class="beam"></span><span class="core"></span></span>
+        <span id="summary"></span>
+      </div>
+
+      <!-- aberta -->
+      <div id="panel" aria-hidden="true">
+        <header>
+          <nav id="tabs" role="tablist">
+            <button class="tab active" data-tab="zabbix" role="tab">Alertas<span class="count" id="count-zabbix">0</span></button>
+            <button class="tab" data-tab="glpi" role="tab">Chamados<span class="count" id="count-glpi">0</span></button>
+          </nav>
+          <div class="actions">
+            <span id="updated" class="updated"></span>
+            <span id="demo-badge" class="badge hidden">demo</span>
+            <button id="btn-refresh" class="icon" title="Atualizar agora" aria-label="Atualizar agora">
+              <svg viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.34-5.66M20 4v5h-5" /></svg>
+            </button>
+            <button id="btn-settings" class="icon" title="Configurações" aria-label="Configurações">
+              <svg viewBox="0 0 24 24"><path d="M4 7h10M18 7h2M4 17h2M10 17h10" /><circle cx="16" cy="7" r="2" /><circle cx="8" cy="17" r="2" /></svg>
+            </button>
+            <button id="btn-unpin" class="icon hidden" title="Desafixar (Ctrl+Alt+F)" aria-label="Desafixar">
+              <svg viewBox="0 0 24 24"><path d="M7 7l10 10M17 7L7 17" /></svg>
+            </button>
+          </div>
+        </header>
+
+        <div id="error" class="error hidden"></div>
+
+        <section id="hero" class="hero hidden">
+          <span class="orb" aria-hidden="true"></span>
+          <div class="hero-text">
+            <div class="hero-meta" id="hero-meta"></div>
+            <div class="hero-title" id="hero-title"></div>
+          </div>
+          <div class="hero-actions">
+            <button id="hero-ack" class="btn ghost">Reconhecer</button>
+            <button id="hero-open" class="btn solid">Abrir</button>
+          </div>
+        </section>
+
+        <section id="calm" class="calm hidden">
+          <span class="orb ok" aria-hidden="true"></span>
+          <span id="calm-text">Tudo calmo por aqui.</span>
+        </section>
+
+        <ul id="list"></ul>
+      </div>
+    </div>
+
+    <script src="island.js"></script>
+  </body>
+</html>
