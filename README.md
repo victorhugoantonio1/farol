@@ -99,4 +99,8 @@ Quer testar contra um Zabbix de verdade sem mexer em produção? O [laboratório
 
 ## Licença
 
-[MIT](LICENSE).
+Desde 13/10/2026, o TopWatch é distribuído sob a [GNU AGPL-3.0](LICENSE). Você pode usar, estudar, modificar e redistribuir. Se distribuir uma versão modificada, ou oferecê-la pela rede, o código dela também tem que ser aberto sob a mesma licença.
+
+As versões publicadas até o commit `af03e0c` continuam sob a licença MIT, como foram publicadas.
+
+Copyright (c) 2026 Victor Hugo Antonio. Para licença comercial (uso sem as obrigações da AGPL), suporte ou a edição para equipes, fale comigo pelo [LinkedIn](https://www.linkedin.com/in/vituhzzz/).
