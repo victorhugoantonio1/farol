@@ -47,7 +47,7 @@ function parseGlpiDate(value) {
 }
 
 function createGlpiClient() {
-  let session = null; // { key, token, userId, profile, profileInterface, entities }
+  let session = null; // { key, token, userId, login, profile, profileInterface, entities, techId }
 
   function sessionKey(cfg) {
     return `${normalizeApiUrl(cfg.url)}|${cfg.userToken}|${cfg.appToken}`;
@@ -105,6 +105,7 @@ function createGlpiClient() {
       }
       if (s) {
         session.userId = s.glpiID ? String(s.glpiID) : null;
+        session.login = s.glpiname || null;
         session.profile = s.glpiactiveprofile ? s.glpiactiveprofile.name : null;
         session.profileInterface = s.glpiactiveprofile ? s.glpiactiveprofile.interface : null;
         session.entities = s.glpiactiveentities ? Object.keys(s.glpiactiveentities).length : null;
@@ -114,6 +115,31 @@ function createGlpiClient() {
     }
   }
 
+  // Login do técnico -> id. Guardado na sessão; refeito se o login mudar.
+  async function technicianId(cfg, token) {
+    const login = String(cfg.technician || '').trim();
+    if (!login) return (session && session.userId) || 'myself';
+    if (session && session.techLogin === login && session.techId) return session.techId;
+    const api = normalizeApiUrl(cfg.url);
+    const q = new URLSearchParams();
+    q.set('criteria[0][field]', '1'); // login
+    q.set('criteria[0][searchtype]', 'contains');
+    q.set('criteria[0][value]', `^${login}$`);
+    q.set('forcedisplay[0]', '2'); // id
+    q.set('range', '0-1');
+    const res = await request(`${api}/search/User?${q.toString()}`, {
+      headers: { ...baseHeaders(cfg), 'Session-Token': token },
+      insecure: !!cfg.insecure,
+    });
+    if (res.status === 401) return null; // sessão expirou; fetchTickets refaz o login
+    if (res.status !== 200 && res.status !== 206) throw glpiError(res, 'GLPI (busca do técnico)');
+    const row = res.json && res.json.data && res.json.data[0];
+    if (!row || !row[2]) throw new Error(`GLPI: usuário "${login}" não encontrado. Use o login (o nome usado pra entrar no GLPI).`);
+    session.techLogin = login;
+    session.techId = String(row[2]);
+    return session.techId;
+  }
+
   async function getSession(cfg) {
     if (session && session.key === sessionKey(cfg)) return session.token;
     return initSession(cfg);
@@ -121,6 +147,11 @@ function createGlpiClient() {
 
   async function searchTickets(cfg, token) {
     const api = normalizeApiUrl(cfg.url);
+    let tech = null;
+    if (cfg.onlyMine) {
+      tech = await technicianId(cfg, token);
+      if (tech === null) return { status: 401 };
+    }
     const limit = Number(cfg.limit ?? 50);
     const q = new URLSearchParams();
     let i = 0;
@@ -133,7 +164,7 @@ function createGlpiClient() {
       q.set(`criteria[${i}][field]`, F.technician);
       q.set(`criteria[${i}][searchtype]`, 'equals');
       // o id do usuário é mais confiável que o "myself", que nem toda versão aceita na busca
-      q.set(`criteria[${i}][value]`, (session && session.userId) || 'myself');
+      q.set(`criteria[${i}][value]`, tech);
       i++;
     }
     [F.name, F.id, F.priority, F.status, F.date, F.dateMod].forEach((f, k) => q.set(`forcedisplay[${k}]`, f));
@@ -184,6 +215,7 @@ function createGlpiClient() {
     session = null;
     const items = await fetchTickets({ ...cfg, limit: 5 });
     const info = [];
+    if (session && session.login) info.push(`como ${session.login}`);
     if (session && session.profile) info.push(`perfil ${session.profile}`);
     if (session && session.entities) info.push(`${session.entities} ${session.entities === 1 ? 'entidade' : 'entidades'}`);
     const head = `Conectado ao GLPI${info.length ? ` (${info.join(', ')})` : ''}.`;
@@ -191,7 +223,11 @@ function createGlpiClient() {
     if (session && session.profileInterface === 'helpdesk') {
       return `${head} Nenhum chamado: o perfil ativo é de autoatendimento e só enxerga chamados que você abriu. Peça um perfil técnico pro seu usuário no GLPI.`;
     }
-    return `${head} Nenhum chamado aberto${cfg.onlyMine ? ' atribuído a você como técnico. Se o chamado está só no seu grupo, desmarque "só os meus"' : ''}.`;
+    if (cfg.onlyMine && !String(cfg.technician || '').trim() && session && session.login) {
+      return `${head} Nenhum chamado atribuído ao usuário "${session.login}", que é o dono deste token. Se esse não é você, preencha "Seu login no GLPI".`;
+    }
+    const who = String(cfg.technician || '').trim();
+    return `${head} Nenhum chamado aberto${cfg.onlyMine ? ` atribuído a ${who ? `"${who}"` : 'você'} como técnico. Se o chamado está só no seu grupo, desmarque "só os meus"` : ''}.`;
   }
 
   async function close(cfg) {

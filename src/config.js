@@ -23,7 +23,8 @@ const DEFAULTS = {
   ui: { display: 'both', highlight: true, mascot: true },
   // servers: [{ id, name, url, token, auth: 'auto'|'header'|'body', insecure, enabled }]
   zabbix: { enabled: false, minSeverity: 2, servers: [] },
-  glpi: { enabled: false, url: '', userToken: '', appToken: '', onlyMine: true, insecure: false },
+  // technician: login do técnico, pra quando o token é de um usuário de serviço
+  glpi: { enabled: false, url: '', userToken: '', appToken: '', onlyMine: true, technician: '', insecure: false },
 };
 
 function clone(o) {

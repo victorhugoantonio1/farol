@@ -451,3 +451,43 @@ test('GLPI antigo sem getFullSession continua funcionando com "myself"', async (
     server.close();
   }
 });
+
+test('GLPI: token de usuário de serviço + login do técnico filtra pelos chamados do técnico', async () => {
+  let lastQuery;
+  let userSearch;
+  const { server, url } = await serve((req, res) => {
+    const u = new URL(req.url, 'http://x');
+    const ep = u.pathname.replace('/apirest.php/', '');
+    if (ep === 'initSession') return json(res, 200, { session_token: 's1' });
+    if (ep === 'changeActiveEntities') return json(res, 200, true);
+    if (ep === 'getFullSession') {
+      return json(res, 200, { session: { glpiID: 9, glpiname: 'api', glpiactiveprofile: { id: 8, name: 'API', interface: 'central' }, glpiactiveentities: { 0: 0, 1: 1 } } });
+    }
+    if (ep === 'search/User') {
+      userSearch = u.searchParams;
+      const found = u.searchParams.get('criteria[0][value]') === '^victor.antonio$';
+      return json(res, 200, { totalcount: found ? 1 : 0, data: found ? [{ 2: 57 }] : [] });
+    }
+    if (ep === 'search/Ticket') {
+      lastQuery = u.searchParams;
+      const ok = lastQuery.get('criteria[1][value]') === '57';
+      return json(res, 200, { totalcount: ok ? 1 : 0, data: ok ? [{ 1: 'teste', 2: 24234, 3: 4, 12: 2 }] : [] });
+    }
+    json(res, 404, ['ERROR_RESOURCE_NOT_FOUND_NOR_COMMONDBTM', '']);
+  });
+  try {
+    const glpi = createGlpiClient();
+    // sem o login: avisa de quem é o token
+    const msg = await glpi.test({ url, userToken: 'tok', onlyMine: true });
+    assert.match(msg, /como api, perfil API/);
+    assert.match(msg, /dono deste token/);
+    // com o login: acha o chamado
+    const items = await glpi.fetchTickets({ url, userToken: 'tok', onlyMine: true, technician: 'victor.antonio' });
+    assert.equal(items[0].number, 24234);
+    assert.equal(userSearch.get('criteria[0][field]'), '1');
+    // login errado: erro claro
+    await assert.rejects(glpi.fetchTickets({ url, userToken: 'tok', onlyMine: true, technician: 'ninguem' }), /"ninguem" não encontrado/);
+  } finally {
+    server.close();
+  }
+});

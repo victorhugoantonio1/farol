@@ -18,6 +18,7 @@ const FIELDS = [
   'glpi.userToken',
   'glpi.appToken',
   'glpi.onlyMine',
+  'glpi.technician',
   'glpi.insecure',
 ];
 

@@ -94,6 +94,11 @@
           <small id="glpi.appToken-hint">Só se o cliente de API do GLPI exigir.</small>
         </label>
         <label class="check"><input type="checkbox" id="glpi.onlyMine" /> Só chamados atribuídos a mim</label>
+        <label class="field">
+          <b>Seu login no GLPI <span class="opt">(opcional)</span></b>
+          <input type="text" id="glpi.technician" placeholder="ex.: victor.antonio" autocomplete="off" spellcheck="false" />
+          <small>Preencha se o token é de um usuário de serviço (ex.: um usuário "api"). Aí "só os meus" mostra os chamados deste técnico, não os do dono do token.</small>
+        </label>
         <label class="check"><input type="checkbox" id="glpi.insecure" /> Aceitar certificado autoassinado</label>
         <div class="test">
           <button class="secondary" data-test="glpi">Testar conexão</button>

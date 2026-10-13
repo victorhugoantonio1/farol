@@ -56,6 +56,7 @@ Quem já usava um Zabbix só não precisa refazer nada: a configuração antiga 
 1. Ative a API em *Configurar → Geral → API* e confira se há um cliente de API liberado pro seu IP.
 2. No seu perfil: *Chaves de acesso remoto → Token da API*.
 3. Se o cliente de API exigir, preencha também o **App-Token**.
+4. Se o token for de um usuário de serviço (um usuário "api", por exemplo), preencha **Seu login no GLPI**. Assim o filtro "só os meus" mostra os chamados atribuídos a você, e não ao dono do token.
 
 Servidor interno com certificado autoassinado? Marque "aceitar certificado autoassinado" naquela integração. Use **Testar conexão** antes de salvar.
 
