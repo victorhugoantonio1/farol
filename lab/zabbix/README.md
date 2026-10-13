@@ -1,6 +1,6 @@
-# Laboratório: Zabbix local pro Farol
+# Laboratório: Zabbix local pro TopWatch
 
-Um Zabbix 7.0 LTS rodando no Docker, com 6 hosts de mentira, e um script que dispara e resolve problemas **pela API**. Serve pra testar o Farol de ponta a ponta sem mexer em nenhum Zabbix de verdade.
+Um Zabbix 7.0 LTS rodando no Docker, com 6 hosts de mentira, e um script que dispara e resolve problemas **pela API**. Serve pra testar o TopWatch de ponta a ponta sem mexer em nenhum Zabbix de verdade.
 
 ## Pré-requisito
 
@@ -13,7 +13,7 @@ npm run lab:up       # sobe Postgres + Zabbix server + frontend (a 1ª vez baixa
 npm run lab:setup    # espera o Zabbix subir, cria hosts/itens/triggers e um token de API
 ```
 
-O `lab:setup` imprime a **URL** e o **token**. No Farol: Configurações → desmarque **Modo demo** → Zabbix **Ativo** → cole URL e token → **Testar conexão** → **Salvar**.
+O `lab:setup` imprime a **URL** e o **token**. No TopWatch: Configurações → desmarque **Modo demo** → Zabbix **Ativo** → cole URL e token → **Testar conexão** → **Salvar**.
 
 Frontend do Zabbix: <http://localhost:8080> (usuário `Admin`, senha `zabbix`).
 
@@ -39,7 +39,7 @@ O roteiro espera 40 s entre os passos. Pra acelerar no PowerShell: `$env:STEP_SE
 | srv-print01 | Serviço "Spooler" parado | Atenção |
 | web-portal | Certificado SSL expira em menos de 15 dias | Atenção |
 
-O botão **Reconhecer** do Farol funciona de verdade aqui: o ack aparece no frontend do Zabbix.
+O botão **Reconhecer** do TopWatch funciona de verdade aqui: o ack aparece no frontend do Zabbix.
 
 ## Como funciona
 

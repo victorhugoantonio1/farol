@@ -50,7 +50,7 @@ if (!app.requestSingleInstanceLock()) {
   app.quit();
 }
 
-app.setAppUserModelId('io.github.victor.farol'); // notificações no Windows
+app.setAppUserModelId('io.github.victorhugoantonio1.topwatch'); // notificações no Windows
 
 // ---------- janelas ----------
 
@@ -113,7 +113,7 @@ function openSettings() {
     height: 720,
     minWidth: 480,
     minHeight: 520,
-    title: 'Farol – Configurações',
+    title: 'TopWatch – Configurações',
     autoHideMenuBar: true,
     backgroundColor: '#14161a',
     icon: path.join(__dirname, 'assets', 'icon.png'),
@@ -246,7 +246,7 @@ function updateTrayTooltip() {
   if (!tray) return;
   const z = state.zabbix.items.length;
   const g = state.glpi.items.length;
-  tray.setToolTip(`Farol – ${z} alerta${z === 1 ? '' : 's'}, ${g} chamado${g === 1 ? '' : 's'}${state.demo ? ' (demo)' : ''}`);
+  tray.setToolTip(`TopWatch – ${z} alerta${z === 1 ? '' : 's'}, ${g} chamado${g === 1 ? '' : 's'}${state.demo ? ' (demo)' : ''}`);
 }
 
 function buildTrayMenu() {

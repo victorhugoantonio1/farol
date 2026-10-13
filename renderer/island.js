@@ -1,5 +1,5 @@
 'use strict';
-/* global farol */
+/* global topwatch */
 
 const $ = (id) => document.getElementById(id);
 const island = $('island');
@@ -87,7 +87,7 @@ function collapse() {
 }
 
 island.addEventListener('mouseenter', () => {
-  farol.setInteractive(true);
+  topwatch.setInteractive(true);
   clearTimeout(closeTimer);
   openTimer = setTimeout(expand, 140); // passar o mouse por cima sem querer não abre
 });
@@ -97,7 +97,7 @@ island.addEventListener('mouseleave', () => {
   if (pinned) return;
   closeTimer = setTimeout(() => {
     collapse();
-    farol.setInteractive(false);
+    topwatch.setInteractive(false);
   }, 400);
 });
 
@@ -120,7 +120,7 @@ function renderSummary(s) {
   island.classList.remove('alerting');
 
   if (!s.zabbix.enabled && !s.glpi.enabled) {
-    summary.append(el('span', null, 'Configure o Farol'));
+    summary.append(el('span', null, 'Configure o TopWatch'));
     return;
   }
 
@@ -197,7 +197,7 @@ function row(item) {
   li.append(el('span', 'title', item.title));
   li.append(el('span', 'where', item.source === 'zabbix' ? item.hosts.join(', ') : `#${item.number} · ${item.statusLabel}`));
   li.append(el('span', 'age', ago(item.source === 'zabbix' ? item.since : item.updated || item.since)));
-  li.addEventListener('click', () => farol.openUrl(item.url));
+  li.addEventListener('click', () => topwatch.openUrl(item.url));
   li.addEventListener('mouseenter', () => {
     const r = li.getBoundingClientRect();
     heroBot.lookAt(r.left + r.width * 0.35, r.top + r.height / 2);
@@ -283,14 +283,14 @@ $('btn-refresh').addEventListener('click', (e) => {
   btn.classList.remove('spin');
   void btn.offsetWidth;
   btn.classList.add('spin');
-  farol.refresh();
+  topwatch.refresh();
 });
 
-$('btn-settings').addEventListener('click', () => farol.openSettings());
-$('btn-unpin').addEventListener('click', () => farol.unpin());
+$('btn-settings').addEventListener('click', () => topwatch.openSettings());
+$('btn-unpin').addEventListener('click', () => topwatch.unpin());
 
 $('hero-open').addEventListener('click', () => {
-  if (heroItem) farol.openUrl(heroItem.url);
+  if (heroItem) topwatch.openUrl(heroItem.url);
 });
 
 $('hero-ack').addEventListener('click', async () => {
@@ -298,7 +298,7 @@ $('hero-ack').addEventListener('click', async () => {
   const btn = $('hero-ack');
   btn.disabled = true;
   btn.textContent = 'Reconhecendo…';
-  const res = await farol.acknowledge(heroItem.eventid);
+  const res = await topwatch.acknowledge(heroItem.eventid);
   if (res.ok) heroBot.celebrate();
   if (!res.ok) {
     btn.disabled = false;
@@ -317,19 +317,19 @@ $('panel').addEventListener('mousemove', (e) => {
 $('list').addEventListener('mouseleave', () => heroBot.lookDown());
 island.addEventListener('mouseleave', () => heroBot.lookDown());
 
-farol.onState((s) => {
+topwatch.onState((s) => {
   state = s;
   render();
 });
 
-farol.onPinned((p) => {
+topwatch.onPinned((p) => {
   pinned = p;
   $('btn-unpin').classList.toggle('hidden', !p);
   if (p) expand();
   else collapse();
 });
 
-farol.onAlert(() => {
+topwatch.onAlert(() => {
   heroBot.jolt();
   island.classList.remove('ping');
   void island.offsetWidth;
@@ -339,7 +339,7 @@ farol.onAlert(() => {
 // atualiza os "há X min" sem esperar a próxima coleta
 setInterval(render, 30000);
 
-farol.getState().then((s) => {
+topwatch.getState().then((s) => {
   state = s;
   render();
 });

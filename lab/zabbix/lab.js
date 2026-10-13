@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 'use strict';
-// Laboratório do Farol: prepara um Zabbix local e simula problemas pela API.
+// Laboratório do TopWatch: prepara um Zabbix local e simula problemas pela API.
 //
 //   node lab/zabbix/lab.js setup              cria hosts, itens, triggers e um token de API
 //   node lab/zabbix/lab.js fire <host|all>    dispara o problema de um host (ou de todos)
@@ -22,8 +22,8 @@ const API = `${URL_BASE}/api_jsonrpc.php`;
 const USER = process.env.ZABBIX_USER || 'Admin';
 const PASSWORD = process.env.ZABBIX_PASSWORD || 'zabbix';
 const TOKEN_FILE = path.join(__dirname, '.token');
-const GROUP = 'Farol Lab';
-const TOKEN_NAME = 'farol-lab';
+const GROUP = 'TopWatch Lab';
+const TOKEN_NAME = 'topwatch-lab';
 
 // Cada host tem um item trapper e uma trigger. "bad" dispara, "ok" normaliza.
 const SCENARIOS = [
@@ -121,7 +121,7 @@ async function setup() {
     console.log(`  host ${s.host.padEnd(12)} pronto`);
   }
 
-  // token de API pro Farol (recria a cada setup)
+  // token de API pro TopWatch (recria a cada setup)
   const old = await rpc('token.get', { filter: { name: [TOKEN_NAME] }, output: ['tokenid'] }, session);
   if (old.length) await rpc('token.delete', old.map((t) => t.tokenid), session);
   const created = await rpc('token.create', { name: TOKEN_NAME }, session);
@@ -146,7 +146,7 @@ async function setup() {
   }
 
   console.log(`
-Pronto. Configure o Farol (Configurações → Zabbix):
+Pronto. Configure o TopWatch (Configurações → Zabbix):
   URL:   ${URL_BASE}
   Token: ${token}
   (desmarque o modo demo e marque "Ativo" no Zabbix)
@@ -179,7 +179,7 @@ async function setState(target, bad) {
   const list = pick(target);
   await push(token, list.map((s) => ({ host: s.host, key: s.key, value: bad ? s.bad : s.ok })));
   for (const s of list) console.log(`${bad ? 'disparado' : 'resolvido'}: ${s.host} (${s.name})`);
-  console.log('O Zabbix leva alguns segundos pra abrir/fechar o problema; o Farol pega na próxima atualização.');
+  console.log('O Zabbix leva alguns segundos pra abrir/fechar o problema; o TopWatch pega na próxima atualização.');
 }
 
 async function status() {

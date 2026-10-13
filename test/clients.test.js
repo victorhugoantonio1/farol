@@ -164,7 +164,7 @@ test('GLPI: erro de login mostra o motivo que o GLPI mandou', async () => {
 });
 
 test('Config: segredos são criptografados no disco e não voltam pra tela', () => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'farol-'));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'topwatch-'));
   // safeStorage falso (no app de verdade é o DPAPI do Windows)
   const fakeSafe = {
     isEncryptionAvailable: () => true,

@@ -32,7 +32,7 @@ function acknowledge(eventid) {
 function snapshot() {
   const now = Date.now();
   tick++;
-  // De vez em quando "resolve" o primeiro alerta, pra ver o farol mudar de cor.
+  // De vez em quando "resolve" o primeiro alerta, pra ver a luz mudar de cor.
   const problems = PROBLEMS.map((p, i) => ({
     id: `zbx-demo-${i}`,
     eventid: `demo-${i}`,

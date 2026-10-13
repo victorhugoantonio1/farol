@@ -4,7 +4,7 @@
 
 const { contextBridge, ipcRenderer } = require('electron');
 
-contextBridge.exposeInMainWorld('farol', {
+contextBridge.exposeInMainWorld('topwatch', {
   // ilha
   setInteractive: (on) => ipcRenderer.send('island:interactive', !!on),
   getState: () => ipcRenderer.invoke('island:state'),

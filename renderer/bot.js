@@ -1,5 +1,5 @@
 'use strict';
-// Vigia: o robozinho do Farol. SVG com acabamento 3D suave, animado por CSS e JS.
+// Vigia: o robozinho do TopWatch. SVG com acabamento 3D suave, animado por CSS e JS.
 // Humores: 'sleep' (tudo calmo), 'watch' (tem coisa), 'alarm' (Alta/Desastre), 'happy' (depois de um ack).
 // Reações: segue o mouse, olha pra linha sob o cursor, escaneia sozinho, leva susto com alerta novo,
 // recua quando é cutucado e dá "glitch" se cutucar demais.

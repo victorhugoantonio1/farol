@@ -28,8 +28,8 @@ Baixe o instalador `.exe` em [Releases](../../releases). Como o instalador não 
 Ou rode do código:
 
 ```bash
-git clone https://github.com/<seu-usuario>/TopWatch.git
-cd TopWatch
+git clone https://github.com/victorhugoantonio1/topwatch.git
+cd topwatch
 npm install
 npm start          # ou: npm run demo
 ```

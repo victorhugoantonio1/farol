@@ -1,5 +1,5 @@
 {
-  "name": "farol",
+  "name": "topwatch",
   "version": "0.1.0",
   "description": "Uma barrinha no topo da tela com os alertas do Zabbix e os chamados do GLPI.",
   "main": "main.js",
@@ -22,8 +22,8 @@
     "electron-builder": "^26.15.3"
   },
   "build": {
-    "appId": "io.github.victor.farol",
-    "productName": "Farol",
+    "appId": "io.github.victorhugoantonio1.topwatch",
+    "productName": "TopWatch",
     "files": [
       "main.js",
       "preload.js",

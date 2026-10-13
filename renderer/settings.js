@@ -1,5 +1,5 @@
 'use strict';
-/* global farol */
+/* global topwatch */
 
 const $ = (id) => document.getElementById(id);
 
@@ -78,7 +78,7 @@ async function runTest(which, button) {
   out.className = 'result';
   out.textContent = 'Testando…';
   try {
-    const res = await farol.testConnection(which, readForm());
+    const res = await topwatch.testConnection(which, readForm());
     out.className = `result ${res.ok ? 'ok' : 'fail'}`;
     out.textContent = res.message;
   } catch (err) {
@@ -95,13 +95,13 @@ let savedTimer;
 $('save').addEventListener('click', async () => {
   const btn = $('save');
   btn.disabled = true;
-  const res = await farol.saveSettings(readForm());
+  const res = await topwatch.saveSettings(readForm());
   btn.disabled = false;
   $('saved').textContent = res.ok ? 'Salvo. A barra já está usando as novas configurações.' : res.message;
   clearTimeout(savedTimer);
   savedTimer = setTimeout(() => ($('saved').textContent = ''), 4000);
   // limpa os campos de segredo e recarrega os placeholders
-  fillForm(await farol.getSettings());
+  fillForm(await topwatch.getSettings());
 });
 
-farol.getSettings().then(fillForm);
+topwatch.getSettings().then(fillForm);

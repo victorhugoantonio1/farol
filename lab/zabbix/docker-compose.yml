@@ -1,9 +1,9 @@
-# Zabbix 7.0 LTS local, só pra testar o Farol.
+# Zabbix 7.0 LTS local, só pra testar o TopWatch.
 # Sobe com:   docker compose up -d
 # Frontend:   http://localhost:8080   (Admin / zabbix)
 # Derruba:    docker compose down      (some com os dados: docker compose down -v)
 
-name: farol-lab-zabbix
+name: topwatch-lab-zabbix
 
 services:
   postgres:
