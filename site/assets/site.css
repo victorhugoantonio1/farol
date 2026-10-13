@@ -1,0 +1,601 @@
+/* TopWatch: site */
+
+:root {
+  --night: #10141f;
+  --deep: #182033;
+  --rule: #273150;
+  --ink: #e8ecf4;
+  --mute: #8f9ab0;
+  --ok: #5fe0a0;
+  --warn: #f0d873;
+  --high: #ff9a5c;
+  --dis: #ff6268;
+  /* cor da luz no momento (muda com a demonstração) */
+  --glow: var(--ok);
+
+  --display: 'Bricolage Grotesque', 'Segoe UI', system-ui, sans-serif;
+  --text: 'IBM Plex Sans', 'Segoe UI', system-ui, sans-serif;
+  --wrap: 1040px;
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  background: var(--night);
+}
+
+body {
+  background: var(--night);
+  color: var(--ink);
+  font: 400 17px/1.6 var(--text);
+  -webkit-font-smoothing: antialiased;
+}
+
+a {
+  color: inherit;
+}
+
+:focus-visible {
+  outline: 2px solid var(--ok);
+  outline-offset: 3px;
+  border-radius: 6px;
+}
+
+img {
+  max-width: 100%;
+  display: block;
+}
+
+.wrap {
+  width: min(var(--wrap), 100% - 32px);
+  margin-inline: auto;
+}
+
+/* ---------- topo: a "tela" com a barra de verdade pendurada ---------- */
+
+.screen {
+  position: relative;
+  min-height: min(92vh, 860px);
+  display: flex;
+  flex-direction: column;
+  isolation: isolate;
+  overflow: hidden;
+}
+
+/* brilho que desce do topo, na cor da luz */
+.screen::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto;
+  height: 78%;
+  background: radial-gradient(26% 30% at 50% 0%, color-mix(in srgb, var(--glow) 48%, transparent), transparent 75%),
+    radial-gradient(58% 72% at 50% 0%, color-mix(in srgb, var(--glow) 16%, transparent), transparent 78%),
+    radial-gradient(95% 80% at 50% 0%, #1f2b48, transparent 80%);
+  transition: background 900ms ease;
+  z-index: -1;
+}
+
+.island-frame {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  translate: -50% 0;
+  width: 640px;
+  max-width: 100%;
+  height: 46px;
+  border: 0;
+  background: transparent;
+  z-index: 5;
+  color-scheme: normal;
+}
+
+.island-frame.open {
+  height: 330px;
+}
+
+.nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 58px;
+  font-size: 15px;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font: 700 19px/1 var(--display);
+  text-decoration: none;
+}
+
+.brand .dot {
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: var(--glow);
+  box-shadow: 0 0 14px var(--glow);
+  transition: background 600ms, box-shadow 600ms;
+}
+
+.nav ul {
+  display: flex;
+  gap: 26px;
+  list-style: none;
+}
+
+.nav a {
+  color: var(--mute);
+  text-decoration: none;
+}
+
+.nav a:hover,
+.nav a[aria-current='page'] {
+  color: var(--ink);
+}
+
+.hero {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 64px 0 72px;
+}
+
+.hero h1 {
+  font: 800 clamp(40px, 6.4vw, 76px) / 0.98 var(--display);
+  letter-spacing: -0.035em;
+  max-width: 15ch;
+  text-wrap: balance;
+}
+
+.hero .lead {
+  margin-top: 22px;
+  max-width: 54ch;
+  color: var(--mute);
+  font-size: clamp(17px, 1.6vw, 19px);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 34px;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding: 13px 22px;
+  border-radius: 12px;
+  font: 600 16px/1 var(--text);
+  text-decoration: none;
+  border: 1px solid var(--rule);
+  background: transparent;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.btn:hover {
+  border-color: #3a4770;
+}
+
+.btn.primary {
+  background: var(--ink);
+  color: var(--night);
+  border-color: var(--ink);
+}
+
+.btn.primary:hover {
+  background: #fff;
+}
+
+.btn svg {
+  width: 18px;
+  height: 18px;
+}
+
+/* simulador: muda o que a barra lá em cima está mostrando */
+.try {
+  margin-top: 54px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  color: var(--mute);
+  font-size: 15px;
+}
+
+.seg {
+  display: inline-flex;
+  padding: 4px;
+  gap: 4px;
+  border-radius: 14px;
+  background: var(--deep);
+  border: 1px solid var(--rule);
+}
+
+.seg button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 15px;
+  border-radius: 10px;
+  border: 0;
+  background: transparent;
+  color: var(--mute);
+  font: 500 15px/1 var(--text);
+  cursor: pointer;
+}
+
+.seg button::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--c);
+}
+
+.seg button[aria-pressed='true'] {
+  background: #233050;
+  color: var(--ink);
+}
+
+.seg button:hover {
+  color: var(--ink);
+}
+
+/* ---------- seções ---------- */
+
+section {
+  padding: 96px 0;
+  border-top: 1px solid var(--rule);
+}
+
+h2 {
+  font: 700 clamp(30px, 3.6vw, 44px) / 1.05 var(--display);
+  letter-spacing: -0.025em;
+  max-width: 22ch;
+}
+
+.intro {
+  margin-top: 16px;
+  max-width: 60ch;
+  color: var(--mute);
+}
+
+/* o que ela faz: lista em duas colunas, sem caixas */
+.features {
+  margin-top: 56px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 44px 64px;
+  list-style: none;
+}
+
+.features li {
+  display: grid;
+  grid-template-columns: 22px 1fr;
+  gap: 4px 14px;
+}
+
+.features .lamp {
+  grid-row: span 2;
+  width: 12px;
+  height: 12px;
+  margin-top: 8px;
+  border-radius: 50%;
+  background: var(--c, var(--ok));
+  box-shadow: 0 0 12px color-mix(in srgb, var(--c, var(--ok)) 70%, transparent);
+}
+
+.features h3,
+.plugin h3 {
+  font: 600 20px/1.3 var(--display);
+  letter-spacing: -0.01em;
+}
+
+.features p {
+  color: var(--mute);
+  max-width: 46ch;
+}
+
+/* Vigia */
+.vigia {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
+  gap: 56px;
+  align-items: center;
+}
+
+.vigia figure img {
+  border-radius: 18px;
+  border: 1px solid var(--rule);
+}
+
+.vigia figcaption {
+  margin-top: 10px;
+  color: var(--mute);
+  font-size: 14px;
+}
+
+.moods {
+  margin-top: 26px;
+  list-style: none;
+  display: grid;
+  gap: 10px;
+}
+
+.moods li {
+  display: flex;
+  gap: 12px;
+  color: var(--mute);
+}
+
+.moods b {
+  color: var(--ink);
+  font-weight: 600;
+  min-width: 150px;
+}
+
+/* ---------- plugins ---------- */
+
+.plugins {
+  margin-top: 44px;
+  list-style: none;
+  border-top: 1px solid var(--rule);
+}
+
+.plugin {
+  display: grid;
+  grid-template-columns: 56px minmax(0, 1fr) auto;
+  gap: 4px 22px;
+  align-items: start;
+  padding: 26px 0;
+  border-bottom: 1px solid var(--rule);
+}
+
+.plugin .mono {
+  grid-row: span 3;
+  width: 56px;
+  height: 56px;
+  border-radius: 14px;
+  display: grid;
+  place-items: center;
+  font: 700 19px/1 var(--display);
+  background: var(--deep);
+  border: 1px solid var(--rule);
+  color: var(--ink);
+}
+
+.plugin p {
+  color: var(--mute);
+  max-width: 62ch;
+}
+
+.plugin .meta {
+  margin-top: 4px;
+  font-size: 15px;
+  color: var(--mute);
+}
+
+.plugin .meta strong {
+  color: var(--ink);
+  font-weight: 500;
+}
+
+.plugin .side {
+  grid-column: 3;
+  grid-row: 1 / span 3;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 12px;
+}
+
+.status {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 14px;
+  color: var(--mute);
+  white-space: nowrap;
+}
+
+.status::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--c);
+}
+
+.status.ready {
+  --c: var(--ok);
+  color: var(--ink);
+}
+
+.status.building {
+  --c: var(--warn);
+}
+
+.status.planned {
+  --c: #59647d;
+}
+
+.plugin.dim .mono {
+  color: var(--mute);
+}
+
+.plugin.dim h3 {
+  color: #c4cbda;
+}
+
+.more {
+  display: inline-block;
+  margin-top: 28px;
+  font-weight: 500;
+  color: var(--ink);
+}
+
+/* passos (são uma sequência de verdade) */
+.steps {
+  margin-top: 44px;
+  list-style: none;
+  counter-reset: step;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 40px;
+}
+
+.steps li {
+  counter-increment: step;
+  padding-top: 18px;
+  border-top: 2px solid var(--rule);
+}
+
+.steps li::before {
+  content: counter(step);
+  display: block;
+  font: 700 34px/1 var(--display);
+  color: var(--mute);
+  margin-bottom: 14px;
+}
+
+.steps h3 {
+  font: 600 19px/1.3 var(--display);
+}
+
+.steps p {
+  margin-top: 6px;
+  color: var(--mute);
+  font-size: 16px;
+}
+
+code,
+pre {
+  font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace;
+  font-size: 0.88em;
+}
+
+code {
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: var(--deep);
+}
+
+pre {
+  margin-top: 26px;
+  padding: 22px 24px;
+  border-radius: 16px;
+  background: var(--deep);
+  border: 1px solid var(--rule);
+  overflow-x: auto;
+  line-height: 1.55;
+  font-size: 14.5px;
+  color: #cfd6e4;
+}
+
+pre .c {
+  color: #6f7b95;
+}
+
+/* página de plugins: cabeçalho sem a barra pendurada */
+.page-head {
+  padding: 40px 0 72px;
+}
+
+.page-head h1 {
+  font: 800 clamp(40px, 5.6vw, 66px) / 1 var(--display);
+  letter-spacing: -0.035em;
+  margin-top: 56px;
+}
+
+.page-head .lead {
+  margin-top: 18px;
+  max-width: 58ch;
+  color: var(--mute);
+  font-size: 19px;
+}
+
+footer {
+  border-top: 1px solid var(--rule);
+  padding: 40px 0 56px;
+  color: var(--mute);
+  font-size: 15px;
+}
+
+footer .wrap {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+footer nav {
+  display: flex;
+  gap: 22px;
+}
+
+/* ---------- celular ---------- */
+
+@media (max-width: 760px) {
+  body {
+    font-size: 16px;
+  }
+  .nav ul {
+    gap: 16px;
+  }
+  .hero {
+    padding-top: 44px;
+  }
+  section {
+    padding: 72px 0;
+  }
+  .features,
+  .vigia,
+  .steps {
+    grid-template-columns: 1fr;
+  }
+  .features {
+    gap: 32px;
+  }
+  .plugin {
+    grid-template-columns: 44px minmax(0, 1fr);
+  }
+  .plugin .mono {
+    width: 44px;
+    height: 44px;
+    font-size: 16px;
+  }
+  .plugin .side {
+    grid-column: 2;
+    grid-row: auto;
+    align-items: flex-start;
+    margin-top: 10px;
+  }
+  .moods li {
+    flex-direction: column;
+    gap: 0;
+  }
+  .seg {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .screen::before,
+  .brand .dot {
+    transition: none;
+  }
+}

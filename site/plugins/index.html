@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Plugins do TopWatch</title>
+    <meta name="description" content="Integrações do TopWatch com outros sistemas: o que cada plugin faz, como conseguir e como instalar." />
+    <link rel="icon" href="../assets/icon.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=IBM+Plex+Mono:wght@400&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="../assets/site.css" />
+  </head>
+  <body>
+    <header class="wrap nav" style="padding-top: 28px">
+      <a class="brand" href="../"><span class="dot" aria-hidden="true"></span>TopWatch</a>
+      <ul>
+        <li><a href="../#recursos">Recursos</a></li>
+        <li><a href="./" aria-current="page">Plugins</a></li>
+        <li><a href="https://github.com/victorhugoantonio1/topwatch">GitHub</a></li>
+      </ul>
+    </header>
+
+    <main>
+      <div class="wrap page-head">
+        <h1>Plugins</h1>
+        <p class="lead">Cada plugin liga o TopWatch a outro sistema e ganha uma aba na barra e uma seção nas configurações. O Zabbix já vem no app.</p>
+      </div>
+
+      <section style="border-top: 0; padding-top: 0">
+        <div class="wrap">
+          <ul class="plugins">
+            <li class="plugin" id="glpi">
+              <span class="mono" aria-hidden="true">G</span>
+              <h3>GLPI</h3>
+              <p>Aba Chamados com os chamados não solucionados, ordenados por prioridade. Mostra só os seus, se você quiser, e abre o chamado com um clique.</p>
+              <p class="meta">Funciona com a API REST do <strong>GLPI 9.5, 10 e 11</strong>. Entra em todas as entidades com subentidades e aceita token de usuário de serviço.</p>
+              <div class="side">
+                <span class="status ready">Disponível na edição para equipes</span>
+                <a class="btn" href="https://www.linkedin.com/in/vituhzzz/">Pedir o plugin</a>
+              </div>
+            </li>
+            <li class="plugin dim" id="alertmanager">
+              <span class="mono" aria-hidden="true">Pr</span>
+              <h3>Prometheus Alertmanager e Grafana</h3>
+              <p>Alertas do Alertmanager e do Grafana Alerting junto com os do Zabbix, com o botão Reconhecer criando um silêncio.</p>
+              <p class="meta">Planejado para a API v2 do Alertmanager, que o Grafana Alerting também usa.</p>
+              <div class="side">
+                <span class="status planned">Planejado</span>
+              </div>
+            </li>
+            <li class="plugin dim" id="prtg">
+              <span class="mono" aria-hidden="true">P</span>
+              <h3>PRTG</h3>
+              <p>Sensores em alerta e com erro do PRTG Network Monitor na lista de alertas.</p>
+              <div class="side">
+                <span class="status planned">Planejado</span>
+              </div>
+            </li>
+            <li class="plugin dim" id="datadog">
+              <span class="mono" aria-hidden="true">D</span>
+              <h3>Datadog</h3>
+              <p>Monitores em alerta do Datadog, com a severidade de cada um.</p>
+              <div class="side">
+                <span class="status planned">Planejado</span>
+              </div>
+            </li>
+          </ul>
+          <p class="intro">Usa um sistema que não está aqui? <a href="https://www.linkedin.com/in/vituhzzz/">Me conta qual</a>.</p>
+        </div>
+      </section>
+
+      <section id="instalar">
+        <div class="wrap">
+          <h2>Como instalar um plugin</h2>
+          <ol class="steps">
+            <li>
+              <h3>Extraia o plugin</h3>
+              <p>O plugin chega como um <code>.zip</code>. Extraia num lugar qualquer: dentro dele tem uma pasta com um arquivo <code>index.js</code>.</p>
+            </li>
+            <li>
+              <h3>Instale pelo TopWatch</h3>
+              <p>No ícone da bandeja, abra Configurações. Em Plugins, clique em Instalar plugin e escolha essa pasta.</p>
+            </li>
+            <li>
+              <h3>Ative e teste</h3>
+              <p>A seção do plugin aparece nas configurações, sem reiniciar. Preencha, use Testar conexão e salve.</p>
+            </li>
+          </ol>
+        </div>
+      </section>
+
+      <section id="criar">
+        <div class="wrap">
+          <h2>Crie o seu plugin</h2>
+          <p class="intro">Um plugin é uma pasta com um <code>index.js</code>. Ele declara a aba e os campos de configuração e devolve os itens a mostrar. O TopWatch cuida da tela, da criptografia dos tokens e da coleta.</p>
+<pre><code>module.exports = {
+  apiVersion: 1,
+  id: 'meu-sistema',
+  name: 'Meu Sistema',
+  tab: { label: 'Tarefas', singular: 'tarefa', plural: 'tarefas' },
+  fields: [
+    { key: 'url', type: 'url', label: 'URL' },
+    { key: 'token', type: 'secret', label: 'Token' }, <span class="c">// salvo criptografado</span>
+  ],
+  create(ctx) {
+    return {
+      async fetch(cfg) {
+        <span class="c">// busque na API com ctx.request e devolva os itens</span>
+        return [{ id: 1, title: 'Backup falhou', level: 4, levelLabel: 'Alta', url: 'https://…' }];
+      },
+      async test(cfg) { return 'Conectado.'; },
+    };
+  },
+};</code></pre>
+          <p class="intro">O formato completo está descrito no começo de <a href="https://github.com/victorhugoantonio1/topwatch/blob/main/src/plugins.js"><code>src/plugins.js</code></a>. Plugins rodam com acesso ao computador: instale só os de quem você confia.</p>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <div class="wrap">
+        <span>TopWatch é software livre, licença AGPL-3.0. Feito por Victor Hugo Antonio.</span>
+        <nav>
+          <a href="https://github.com/victorhugoantonio1/topwatch">GitHub</a>
+          <a href="https://www.linkedin.com/in/vituhzzz/">LinkedIn</a>
+        </nav>
+      </div>
+    </footer>
+  </body>
+</html>

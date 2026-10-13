@@ -256,6 +256,7 @@ $('install-plugin').addEventListener('click', async (e) => {
 });
 
 $('open-plugins').addEventListener('click', () => topwatch.openPluginsFolder());
+$('plugins-site').addEventListener('click', () => topwatch.openPluginsSite());
 
 // ---------- formulário ----------
 

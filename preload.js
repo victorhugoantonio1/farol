@@ -24,4 +24,5 @@ contextBridge.exposeInMainWorld('topwatch', {
   testConnection: (which, changes, id) => ipcRenderer.invoke('settings:test', which, changes, id),
   installPlugin: () => ipcRenderer.invoke('settings:install-plugin'),
   openPluginsFolder: () => ipcRenderer.send('settings:open-plugins-folder'),
+  openPluginsSite: () => ipcRenderer.send('settings:open-plugins-site'),
 });

@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>TopWatch: alertas do Zabbix no topo da tela</title>
+    <meta name="description" content="Uma barra discreta no topo da tela com os alertas do Zabbix. Passe o mouse e ela abre; alerta grave muda a cor da luz. Para Windows, grátis e de código aberto." />
+    <link rel="icon" href="assets/icon.png" />
+    <meta property="og:title" content="TopWatch" />
+    <meta property="og:description" content="Alertas do Zabbix no topo da tela, sem abrir aba nenhuma." />
+    <meta property="og:image" content="assets/preview.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=IBM+Plex+Mono:wght@400&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="assets/site.css" />
+  </head>
+  <body>
+    <div class="screen">
+      <!-- a barra de verdade, rodando com dados de exemplo -->
+      <iframe id="island" class="island-frame" src="demo/island.html" title="Demonstração da barra do TopWatch: passe o mouse pra abrir"></iframe>
+
+      <header class="wrap nav">
+        <a class="brand" href="./"><span class="dot" aria-hidden="true"></span>TopWatch</a>
+        <ul>
+          <li><a href="#recursos">Recursos</a></li>
+          <li><a href="plugins/">Plugins</a></li>
+          <li><a href="https://github.com/victorhugoantonio1/topwatch">GitHub</a></li>
+        </ul>
+      </header>
+
+      <main class="wrap hero">
+        <h1>Alertas do Zabbix no topo da tela, sem abrir aba nenhuma.</h1>
+        <p class="lead">O TopWatch é uma barra discreta para quem trabalha em NOC e suporte. Passe o mouse e ela abre. Quando aparece um alerta grave, a luz muda de cor e o Vigia avisa.</p>
+        <div class="actions">
+          <a class="btn primary" href="https://github.com/victorhugoantonio1/topwatch/releases/latest">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11m0 0-4.5-4.5M12 15l4.5-4.5M5 20h14" /></svg>
+            Baixar para Windows
+          </a>
+          <a class="btn" href="https://github.com/victorhugoantonio1/topwatch">Ver o código</a>
+        </div>
+
+        <div class="try">
+          <span>Passe o mouse na barra lá em cima. Depois, troque o cenário:</span>
+          <div class="seg" role="group" aria-label="Cenário da demonstração">
+            <button type="button" data-scenario="calm" aria-pressed="false" style="--c: var(--ok)">Tudo calmo</button>
+            <button type="button" data-scenario="medium" aria-pressed="false" style="--c: #f4bb62">Alerta médio</button>
+            <button type="button" data-scenario="disaster" aria-pressed="true" style="--c: var(--dis)">Desastre</button>
+          </div>
+        </div>
+      </main>
+    </div>
+
+    <section id="recursos">
+      <div class="wrap">
+        <h2>Feito pra ficar de olho por você</h2>
+        <p class="intro">A barra fica recolhida no topo da tela e deixa o mouse passar por ela. Você só nota quando precisa.</p>
+        <ul class="features">
+          <li style="--c: var(--ok)">
+            <span class="lamp" aria-hidden="true"></span>
+            <h3>Luz de status</h3>
+            <p>Verde quando está tudo calmo. Amarela, laranja ou vermelha conforme o pior alerta aberto. Em Alta ou Desastre, a barra mostra direto o host com problema.</p>
+          </li>
+          <li style="--c: #7ab8ff">
+            <span class="lamp" aria-hidden="true"></span>
+            <h3>Vários Zabbix na mesma lista</h3>
+            <p>Um 6.0 com clientes antigos e um 7.0, juntos, cada alerta com a etiqueta do servidor. A versão é detectada sozinha.</p>
+          </li>
+          <li style="--c: var(--warn)">
+            <span class="lamp" aria-hidden="true"></span>
+            <h3>Reconhecer sem abrir o Zabbix</h3>
+            <p>O alerta mais grave vem em destaque com o botão Reconhecer. O ack vai para o servidor de onde o alerta veio.</p>
+          </li>
+          <li style="--c: var(--high)">
+            <span class="lamp" aria-hidden="true"></span>
+            <h3>Notificação do Windows</h3>
+            <p>Problema novo de severidade Alta ou Desastre gera notificação, mesmo com a barra recolhida ou escondida.</p>
+          </li>
+          <li style="--c: #a3abb5">
+            <span class="lamp" aria-hidden="true"></span>
+            <h3>Leve para o Zabbix</h3>
+            <p>Uma consulta por servidor a cada 60 segundos, com os hosts em cache. Servidor fora do ar não derruba os outros.</p>
+          </li>
+          <li style="--c: var(--dis)">
+            <span class="lamp" aria-hidden="true"></span>
+            <h3>Tokens protegidos</h3>
+            <p>Os tokens ficam criptografados no Windows e nunca voltam em texto puro para a tela. O app só fala com os servidores que você configurar.</p>
+          </li>
+        </ul>
+      </div>
+    </section>
+
+    <section>
+      <div class="wrap vigia">
+        <figure>
+          <img src="assets/vigia.gif" width="720" height="360" alt="O Vigia olhando a lista de alertas, levando susto com um Desastre e acenando depois do reconhecimento" loading="lazy" />
+          <figcaption>O Vigia no painel da barra. No ícone perto do relógio, ele aparece em miniatura.</figcaption>
+        </figure>
+        <div>
+          <h2>O Vigia fica de olho junto com você</h2>
+          <p class="intro">Um robozinho que reage ao que acontece. Dá para desligar nas configurações.</p>
+          <ul class="moods">
+            <li><b>Tudo calmo</b> Desliga e fica de luz apagada.</li>
+            <li><b>Alerta aberto</b> Segue o mouse e olha para a linha sob o cursor.</li>
+            <li><b>Alerta novo grave</b> Leva um susto e fica vermelho no Desastre.</li>
+            <li><b>Depois do Reconhecer</b> Acena.</li>
+            <li><b>Cutucado três vezes</b> Dá glitch.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="wrap">
+        <h2>Plugins para os outros sistemas</h2>
+        <p class="intro">O TopWatch é focado no Zabbix. Integrações com outros sistemas entram por plugins: cada um ganha uma aba na barra e uma seção nas configurações.</p>
+        <a class="more" href="plugins/">Ver os plugins disponíveis</a>
+      </div>
+    </section>
+
+    <section id="instalar">
+      <div class="wrap">
+        <h2>Instalar leva dois minutos</h2>
+        <ol class="steps">
+          <li>
+            <h3>Baixe o instalador</h3>
+            <p>Na página de <a href="https://github.com/victorhugoantonio1/topwatch/releases/latest">versões do GitHub</a>, baixe o <code>.exe</code> mais recente.</p>
+          </li>
+          <li>
+            <h3>Libere no SmartScreen</h3>
+            <p>O instalador não é assinado, então o Windows avisa "Editor desconhecido". Clique em Mais informações e depois em Executar assim mesmo.</p>
+          </li>
+          <li>
+            <h3>Conecte o Zabbix</h3>
+            <p>No ícone da bandeja, abra Configurações, cole a URL do Zabbix e um token de API e use Testar conexão.</p>
+          </li>
+        </ol>
+      </div>
+    </section>
+
+    <footer>
+      <div class="wrap">
+        <span>TopWatch é software livre, licença AGPL-3.0. Feito por Victor Hugo Antonio.</span>
+        <nav>
+          <a href="https://github.com/victorhugoantonio1/topwatch">GitHub</a>
+          <a href="https://www.linkedin.com/in/vituhzzz/">LinkedIn</a>
+        </nav>
+      </div>
+    </footer>
+
+    <script src="assets/site.js"></script>
+  </body>
+</html>

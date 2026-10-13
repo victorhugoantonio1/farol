@@ -1,5 +1,7 @@
 # TopWatch
 
+**Site:** [victorhugoantonio1.github.io/topwatch](https://victorhugoantonio1.github.io/topwatch/) · [Plugins](https://victorhugoantonio1.github.io/topwatch/plugins/)
+
 Uma barrinha discreta no topo da tela que mostra os **alertas do Zabbix**. Passou o mouse, ela abre. Tem alerta grave, a luz muda de cor e a barra diz qual é o host, sem você precisar abrir aba nenhuma.
 
 ![TopWatch aberto, com um alerta de Desastre em destaque, alertas de dois servidores Zabbix e o Vigia de olho](docs/preview.png)
@@ -89,7 +91,8 @@ src/demo.js        dados de exemplo
 renderer/          interface da ilha, o Vigia (bot.js) e a tela de configurações
 test/              testes do cliente Zabbix, das configurações e dos plugins
 lab/zabbix/        Zabbix local no Docker + script que simula problemas pela API
-scripts/           gerador dos ícones da bandeja (o Vigia em miniatura)
+scripts/           gerador dos ícones da bandeja e montagem do site
+site/              site do TopWatch (GitHub Pages); a demonstração usa a barra de verdade, de renderer/
 ```
 
 Testes: `npm test`.

@@ -25,6 +25,9 @@ const demo = require('./src/demo');
 
 // Tamanho da janela da ilha. A janela é transparente e deixa o mouse passar,
 // então esse retângulo todo não atrapalha nada quando a ilha está recolhida.
+// página com os plugins disponíveis (site do TopWatch no GitHub Pages)
+const PLUGINS_SITE = 'https://victorhugoantonio1.github.io/topwatch/plugins/';
+
 const ISLAND_W = 640;
 const ISLAND_H = 330;
 const FORCE_DEMO = process.argv.includes('--demo');
@@ -585,6 +588,10 @@ ipcMain.handle('settings:install-plugin', async (e) => {
   } catch (err) {
     return { ok: false, message: err.message };
   }
+});
+
+ipcMain.on('settings:open-plugins-site', (e) => {
+  if (fromWindow(e, settingsWin)) shell.openExternal(PLUGINS_SITE);
 });
 
 ipcMain.on('settings:open-plugins-folder', (e) => {

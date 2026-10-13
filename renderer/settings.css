@@ -375,6 +375,11 @@ button.link {
   padding: 0 4px;
 }
 
+button.link.inline {
+  padding: 0;
+  color: var(--text);
+}
+
 button.link:hover {
   color: var(--text);
 }
