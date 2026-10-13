@@ -219,12 +219,13 @@ test('Zabbix: Reconhecer chama event.acknowledge com action 2', async () => {
 
 
 // Zabbix falso que se comporta como 6.0 (token só no corpo) ou 7.0 (token no cabeçalho)
-function fakeZabbix(versionString, { failVersion = false } = {}) {
+function fakeZabbix(versionString, { failVersion = false, stripHeader = false, noHosts = false } = {}) {
   const calls = [];
   const modern = !zabbix.needsBodyAuth(versionString);
+  const bodyRemoved = /^7\.[2-9]/.test(versionString); // 7.2+ não aceita mais "auth" no corpo
   return serve((req, res, raw) => {
     const body = JSON.parse(raw);
-    const header = req.headers.authorization;
+    const header = stripHeader ? undefined : req.headers.authorization; // proxy que remove o cabeçalho
     calls.push({ method: body.method, header, bodyAuth: body.auth });
     const reply = (result) => json(res, 200, { jsonrpc: '2.0', id: body.id, result });
     const fail = (message, data) => json(res, 200, { jsonrpc: '2.0', id: body.id, error: { code: -32602, message, data } });
@@ -232,8 +233,11 @@ function fakeZabbix(versionString, { failVersion = false } = {}) {
       if (failVersion) return json(res, 403, {});
       return reply(versionString);
     }
+    if (bodyRemoved && body.auth) return fail('Invalid params.', 'Invalid parameter "/": unexpected parameter "auth".');
     const token = modern ? (header || '').replace(/^Bearer /, '') || body.auth : body.auth;
     if (token !== 'tok') return fail('Invalid params.', 'Not authorized.');
+    if (body.method === 'host.get') return reply(noHosts ? '0' : '3');
+    if (body.method === 'problem.get' && noHosts) return reply(body.params.countOutput ? '0' : []);
     if (body.method === 'problem.get') return reply([{ eventid: '10', objectid: '1', name: `Problema no ${versionString}`, severity: '4', clock: '1760000000', acknowledged: '0' }]);
     if (body.method === 'trigger.get') return reply([{ triggerid: '1', hosts: [{ host: `host-${versionString}` }] }]);
     if (body.method === 'event.acknowledge') return reply({ eventids: body.params.eventids });
@@ -315,4 +319,50 @@ test('Config: a configuração antiga (um Zabbix só) vira o primeiro servidor d
   );
   assert.equal(m.zabbix.url, undefined);
   assert.equal(migrate({ zabbix: { servers: [] } }).zabbix.servers.length, 0);
+});
+
+test('Zabbix: 7.0 atrás de proxy que remove o cabeçalho Authorization cai pro token no corpo', async () => {
+  zabbix._resetDetection();
+  const z7 = await fakeZabbix('7.0.5', { stripHeader: true });
+  try {
+    const items = await zabbix.fetchProblems({ id: 'z7', name: 'Zabbix 7', url: z7.url, token: 'tok' });
+    assert.equal(items.length, 1);
+    await zabbix.fetchProblems({ id: 'z7', name: 'Zabbix 7', url: z7.url, token: 'tok' });
+    const tries = z7.calls.filter((c) => c.method === 'problem.get');
+    // 1ª rodada: cabeçalho recusado, corpo aceito; 2ª rodada já vai direto no corpo
+    assert.deepEqual(tries.map((c) => (c.bodyAuth ? 'body' : 'header')), ['header', 'body', 'body']);
+  } finally {
+    z7.server.close();
+  }
+});
+
+test('Zabbix: 7.4 (sem "auth" no corpo) funciona com o cabeçalho', async () => {
+  zabbix._resetDetection();
+  const z74 = await fakeZabbix('7.4.2');
+  try {
+    const items = await zabbix.fetchProblems({ id: 'z74', url: z74.url, token: 'tok' });
+    assert.equal(items.length, 1);
+    assert.equal(z74.calls.find((c) => c.method === 'problem.get').header, 'Bearer tok');
+  } finally {
+    z74.server.close();
+  }
+});
+
+test('Zabbix: teste de conexão avisa quando o token não enxerga nenhum host', async () => {
+  zabbix._resetDetection();
+  const z7 = await fakeZabbix('7.0.5', { noHosts: true });
+  try {
+    const msg = await zabbix.test({ id: 'z7', url: z7.url, token: 'tok' });
+    assert.match(msg, /7\.0\.5/);
+    assert.match(msg, /não enxerga nenhum host/);
+  } finally {
+    z7.server.close();
+  }
+});
+
+test('Zabbix: aceita URL colada da barra do navegador', () => {
+  assert.equal(zabbix.normalizeApiUrl('https://zbx/zabbix.php?action=dashboard.view'), 'https://zbx/api_jsonrpc.php');
+  assert.equal(zabbix.normalizeApiUrl('https://zbx/zabbix/'), 'https://zbx/zabbix/api_jsonrpc.php');
+  assert.equal(zabbix.normalizeApiUrl('zbx7.local'), 'http://zbx7.local/api_jsonrpc.php');
+  assert.equal(zabbix.normalizeApiUrl('https://zbx/zabbix/api_jsonrpc.php'), 'https://zbx/zabbix/api_jsonrpc.php');
 });

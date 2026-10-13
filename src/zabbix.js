@@ -20,10 +20,15 @@ function baseUrl(apiUrl) {
     .replace(/\/+$/, '');
 }
 
+// Aceita a URL do jeito que vier da barra do navegador:
+// "https://zbx/zabbix.php?action=dashboard.view" -> "https://zbx/api_jsonrpc.php"
 function normalizeApiUrl(url) {
-  const trimmed = String(url || '').trim().replace(/\/+$/, '');
-  if (!trimmed) return '';
-  return /api_jsonrpc\.php$/i.test(trimmed) ? trimmed : `${trimmed}/api_jsonrpc.php`;
+  let u = String(url || '').trim().replace(/[?#].*$/, '').replace(/\/+$/, '');
+  if (!u) return '';
+  if (/\/api_jsonrpc\.php$/i.test(u)) return u;
+  u = u.replace(/\/[^/]*\.php$/i, ''); // zabbix.php, index.php...
+  if (!/^https?:\/\//i.test(u)) u = `http://${u}`;
+  return `${u}/api_jsonrpc.php`;
 }
 
 function label(server) {
@@ -74,10 +79,14 @@ async function version(server) {
   return v;
 }
 
+// modo que funcionou de fato, por URL (vale mais que a versão)
+const workingMode = new Map();
+
 async function authModeFor(server) {
   if (server.auth === 'header' || server.auth === 'body') return server.auth;
   if (server.legacyAuth === true) return 'body'; // configuração antiga
   const key = normalizeApiUrl(server.url);
+  if (workingMode.has(key)) return workingMode.get(key);
   let v = detected.get(key);
   if (v === undefined) {
     try {
@@ -92,21 +101,33 @@ async function authModeFor(server) {
 
 function looksLikeAuthError(err) {
   const text = `${err.zabbix?.message || ''} ${err.zabbix?.data || ''}`.toLowerCase();
-  return /not authori[sz]ed|session terminated|re-login|invalid params/.test(text);
+  return /not authori[sz]ed|session terminated|re-login|invalid params|unexpected parameter/.test(text);
 }
 
 async function call(server, method, params) {
+  const key = normalizeApiUrl(server.url);
   const mode = await authModeFor(server);
   try {
-    return await rawCall(server, method, params, mode);
+    const result = await rawCall(server, method, params, mode);
+    if (server.auth !== 'header' && server.auth !== 'body') workingMode.set(key, mode);
+    return result;
   } catch (err) {
-    // versão desconhecida e o cabeçalho foi recusado: tenta o jeito antigo uma vez
-    if (server.auth !== 'header' && mode === 'header' && detected.get(normalizeApiUrl(server.url)) == null && looksLikeAuthError(err)) {
-      const result = await rawCall(server, method, params, 'body');
-      detected.set(normalizeApiUrl(server.url), '6.0');
+    // Modo automático e o token foi recusado: tenta o outro jeito uma vez.
+    // Cobre proxy/Apache que remove o cabeçalho Authorization (o 7.0 ainda aceita o token no corpo)
+    // e versão detectada errado.
+    const forced = server.auth === 'header' || server.auth === 'body' || server.legacyAuth === true;
+    if (forced || workingMode.has(key) || !looksLikeAuthError(err)) throw err;
+    const other = mode === 'header' ? 'body' : 'header';
+    try {
+      const result = await rawCall(server, method, params, other);
+      workingMode.set(key, other);
       return result;
+    } catch {
+      if (mode === 'header' && /not authori[sz]ed|session terminated/i.test(err.message)) {
+        err.message += '. O token foi recusado no cabeçalho e no corpo: confira se o token está ativo e não expirou, e se o servidor web/proxy repassa o cabeçalho Authorization.';
+      }
+      throw err;
     }
-    throw err;
   }
 }
 
@@ -194,7 +215,9 @@ async function acknowledge(server, eventid, message) {
 }
 
 async function test(server, { minSeverity = 2 } = {}) {
-  detected.delete(normalizeApiUrl(server.url)); // testa do zero
+  const key = normalizeApiUrl(server.url);
+  detected.delete(key); // testa do zero
+  workingMode.delete(key);
   let v = null;
   try {
     v = await version(server);
@@ -204,7 +227,20 @@ async function test(server, { minSeverity = 2 } = {}) {
   const items = await fetchProblems(server, { minSeverity, limit: 5 });
   const mode = await authModeFor(server);
   const how = mode === 'body' ? 'token no corpo' : 'token no cabeçalho';
-  return `Conectado${v ? ` ao Zabbix ${v}` : ''} (${how}). ${items.length ? `${items.length}+ problemas visíveis.` : 'Nenhum problema aberto.'}`;
+  const head = `Conectado${v ? ` ao Zabbix ${v}` : ''} (${how}).`;
+  if (items.length) return `${head} ${items.length}+ problemas visíveis.`;
+
+  // Nada apareceu: tenta explicar o porquê.
+  const hosts = Number(await call(server, 'host.get', { countOutput: true }));
+  if (!hosts) {
+    return `${head} Mas o usuário deste token não enxerga nenhum host. No Zabbix, dê permissão de leitura nos grupos de hosts pro grupo de usuários dele (ou use um usuário com papel Super admin).`;
+  }
+  const all = await call(server, 'problem.get', { countOutput: true, source: 0, object: 0 });
+  const below = Number(all);
+  if (below) {
+    return `${head} ${hosts} hosts visíveis, mas os ${below} problemas abertos estão abaixo da severidade mínima ou em manutenção.`;
+  }
+  return `${head} ${hosts} hosts visíveis, nenhum problema aberto.`;
 }
 
 module.exports = {
@@ -217,5 +253,8 @@ module.exports = {
   needsBodyAuth,
   activeServers,
   SEVERITY_LABELS,
-  _resetDetection: () => detected.clear(),
+  _resetDetection: () => {
+    detected.clear();
+    workingMode.clear();
+  },
 };
