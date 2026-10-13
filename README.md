@@ -19,6 +19,7 @@ Feito pra quem trabalha em NOC / suporte de infra e não quer ficar com uma aba 
 
 - **Plugins**: cada integração instalada ganha a própria aba na barra e a própria seção nas configurações.
 - **Modo demo** com dados de exemplo, pra ver funcionando sem configurar nada.
+- **Vigia na bandeja**: o ícone perto do relógio é o Vigia em miniatura. O olho tem a cor do pior alerta, pisca de vez em quando e pulsa em Alta ou Desastre.
 - `Ctrl` + `Alt` + `F` fixa a barra aberta; o ícone na bandeja esconde/mostra.
 
 ## Instalar
@@ -88,6 +89,7 @@ src/demo.js        dados de exemplo
 renderer/          interface da ilha, o Vigia (bot.js) e a tela de configurações
 test/              testes do cliente Zabbix, das configurações e dos plugins
 lab/zabbix/        Zabbix local no Docker + script que simula problemas pela API
+scripts/           gerador dos ícones da bandeja (o Vigia em miniatura)
 ```
 
 Testes: `npm test`.

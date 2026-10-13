@@ -317,9 +317,88 @@ function restartPolling() {
 
 // ---------- bandeja ----------
 
+// O ícone é o Vigia em miniatura (assets/tray, gerado por scripts/tray-icons.py).
+// A cor do olho segue o pior alerta, ele pisca e olha pros lados de vez em quando,
+// e o olho pulsa em Alta/Desastre.
+const TRAY_DIR = path.join(__dirname, 'assets', 'tray');
+const trayCache = new Map();
+let trayLevelNow = null;
+let trayFrameNow = null;
+let trayIdleTimer = null;
+let trayPoseTimer = null;
+let trayPulseTimer = null;
+
+function trayImage(level, frame) {
+  const key = `${level}-${frame}`;
+  if (!trayCache.has(key)) {
+    // createFromPath pega sozinho as versões @1.5x e @2x pra telas com zoom
+    const img = nativeImage.createFromPath(path.join(TRAY_DIR, `${key}.png`));
+    trayCache.set(key, img.isEmpty() ? null : img);
+  }
+  return trayCache.get(key);
+}
+
 function trayIcon() {
-  const img = nativeImage.createFromPath(path.join(__dirname, 'assets', 'tray.png'));
-  return img.isEmpty() ? nativeImage.createEmpty() : img;
+  return trayImage('ok', 'open') || nativeImage.createEmpty();
+}
+
+function setTrayFrame(frame) {
+  if (!tray || tray.isDestroyed()) return;
+  if (frame === trayFrameNow) return;
+  const img = trayImage(trayLevelNow || 'ok', frame);
+  if (!img) return;
+  tray.setImage(img);
+  trayFrameNow = frame;
+}
+
+// mesma regra da luz da ilha: o que a barra está mostrando define a cor
+function trayLevel() {
+  const display = store ? store.get().ui.display : 'both';
+  const plugin = state.plugins.find((p) => p.id === display && p.enabled);
+  if (!plugin) {
+    const open = state.zabbix.items.filter((p) => !p.acknowledged);
+    if (open.length) return String(Math.max(...open.map((p) => p.severity)));
+  } else if (plugin.items.length) {
+    return String(Math.max(...plugin.items.map((it) => it.level)));
+  }
+  const errors = [state.zabbix.error, ...state.plugins.filter((p) => p.enabled).map((p) => p.error)];
+  return errors.some(Boolean) ? 'error' : 'ok';
+}
+
+// pisca ou dá uma olhada pro lado a cada poucos segundos
+function scheduleTrayIdle() {
+  clearTimeout(trayIdleTimer);
+  trayIdleTimer = setTimeout(() => {
+    clearTimeout(trayPoseTimer);
+    const pulsing = !!trayPulseTimer;
+    const r = Math.random();
+    if (pulsing || r < 0.65) {
+      setTrayFrame('blink');
+      trayPoseTimer = setTimeout(() => setTrayFrame('open'), 160);
+    } else {
+      setTrayFrame(r < 0.82 ? 'left' : 'right');
+      trayPoseTimer = setTimeout(() => setTrayFrame('open'), 900);
+    }
+    scheduleTrayIdle();
+  }, 3500 + Math.random() * 4500);
+}
+
+function updateTrayIcon() {
+  const level = trayLevel();
+  if (level === trayLevelNow) return;
+  trayLevelNow = level;
+  trayFrameNow = null;
+  setTrayFrame('open');
+  clearInterval(trayPulseTimer);
+  trayPulseTimer = null;
+  if (level === '4' || level === '5') {
+    // Desastre pulsa mais rápido que Alta
+    let on = true;
+    trayPulseTimer = setInterval(() => {
+      on = !on;
+      setTrayFrame(on ? 'open' : 'dim');
+    }, level === '5' ? 550 : 1000);
+  }
 }
 
 function updateTrayTooltip() {
@@ -331,6 +410,7 @@ function updateTrayTooltip() {
     parts.push(`${n} ${n === 1 ? p.tab.singular : p.tab.plural}`);
   }
   tray.setToolTip(`TopWatch – ${parts.join(', ')}${state.demo ? ' (demo)' : ''}`);
+  updateTrayIcon();
 }
 
 function buildTrayMenu() {
@@ -371,6 +451,7 @@ function createTray() {
   tray.on('click', () => setHidden(!hidden));
   buildTrayMenu();
   updateTrayTooltip();
+  scheduleTrayIdle();
 }
 
 // ---------- IPC ----------
@@ -527,5 +608,8 @@ app.on('window-all-closed', (e) => e.preventDefault()); // vive na bandeja
 app.on('will-quit', () => {
   globalShortcut.unregisterAll();
   clearInterval(pollTimer);
+  clearInterval(trayPulseTimer);
+  clearTimeout(trayIdleTimer);
+  clearTimeout(trayPoseTimer);
   for (const p of plugins) closePlugin(p);
 });
