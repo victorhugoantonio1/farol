@@ -28,8 +28,8 @@ LEVELS = {
 FRAMES = {
     "open": dict(dx=0, blink=False, dim=False),
     "blink": dict(dx=0, blink=True, dim=False),
-    "left": dict(dx=-4, blink=False, dim=False),
-    "right": dict(dx=4, blink=False, dim=False),
+    "left": dict(dx=-5, blink=False, dim=False),
+    "right": dict(dx=5, blink=False, dim=False),
     "dim": dict(dx=0, blink=False, dim=True),
 }
 

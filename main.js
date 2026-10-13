@@ -365,22 +365,28 @@ function trayLevel() {
   return errors.some(Boolean) ? 'error' : 'ok';
 }
 
-// pisca ou dá uma olhada pro lado a cada poucos segundos
+// De tempos em tempos ele faz alguma coisa: pisca, olha pra um lado ou varre de um lado ao outro.
+// Com alerta grave (olho pulsando), só pisca, pra não brigar com o pulso.
+function trayPose(steps) {
+  clearTimeout(trayPoseTimer);
+  const [frame, ms] = steps[0];
+  setTrayFrame(frame);
+  trayPoseTimer = setTimeout(() => (steps.length > 1 ? trayPose(steps.slice(1)) : setTrayFrame('open')), ms);
+}
+
+let trayBlinksInRow = 0;
 function scheduleTrayIdle() {
   clearTimeout(trayIdleTimer);
   trayIdleTimer = setTimeout(() => {
-    clearTimeout(trayPoseTimer);
-    const pulsing = !!trayPulseTimer;
-    const r = Math.random();
-    if (pulsing || r < 0.65) {
-      setTrayFrame('blink');
-      trayPoseTimer = setTimeout(() => setTrayFrame('open'), 160);
-    } else {
-      setTrayFrame(r < 0.82 ? 'left' : 'right');
-      trayPoseTimer = setTimeout(() => setTrayFrame('open'), 900);
-    }
+    // no máximo duas piscadas seguidas: na terceira ele olha pro lado
+    const r = trayBlinksInRow >= 2 ? 0.5 + Math.random() * 0.5 : Math.random();
+    if (trayPulseTimer || r < 0.35) trayPose([['blink', 160]]);
+    else if (r < 0.45) trayPose([['blink', 140], ['open', 180], ['blink', 140]]);
+    else if (r < 0.75) trayPose([[Math.random() < 0.5 ? 'left' : 'right', 1300]]);
+    else trayPose([['left', 700], ['open', 150], ['right', 700]]);
+    trayBlinksInRow = !trayPulseTimer && r >= 0.45 ? 0 : trayBlinksInRow + 1;
     scheduleTrayIdle();
-  }, 3500 + Math.random() * 4500);
+  }, 3000 + Math.random() * 3500);
 }
 
 function updateTrayIcon() {
