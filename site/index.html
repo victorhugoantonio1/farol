@@ -20,7 +20,6 @@
       <ul>
         <li><a href="#como-funciona">Como funciona</a></li>
         <li><a href="plugins/">Plugins</a></li>
-        <li><a href="#equipes">Para equipes</a></li>
         <li><a href="https://github.com/victorhugoantonio1/topwatch">GitHub</a></li>
       </ul>
     </header>
@@ -29,7 +28,7 @@
       <div class="wrap hero">
         <h1>Alertas do Zabbix no topo da tela, sem abrir aba nenhuma.</h1>
         <div class="hero-side">
-          <p class="lead">Uma barra discreta para quem trabalha em NOC e suporte. Você continua no que está fazendo; quando um alerta grave aparece, a luz muda de cor e a barra mostra o host com problema.</p>
+          <p class="lead">Uma barra discreta no topo da tela. Você continua no que está fazendo; quando um alerta grave aparece, a luz muda de cor e a barra mostra o host com problema.</p>
           <div class="actions">
             <a class="btn primary" href="https://github.com/victorhugoantonio1/topwatch/releases/latest">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11m0 0-4.5-4.5M12 15l4.5-4.5M5 20h14" /></svg>
@@ -94,26 +93,11 @@ joao.silva       True
               <p>Em Alta ou Desastre, a luz fica vermelha e a pílula mostra direto o host com problema. O Windows também notifica.</p>
             </li>
             <li class="flow-c">
-              <figure class="shot"><img src="assets/shots/panel.png" width="600" height="296" alt="Barra aberta: Desastre em destaque com os botões Reconhecer e Abrir, e a lista dos outros alertas com a etiqueta do servidor Zabbix" /></figure>
+              <figure class="shot"><img src="assets/shots/panel.png" width="600" height="296" alt="Barra aberta: Desastre em destaque com os botões Reconhecer e Abrir, e a lista dos outros alertas" /></figure>
               <h3>Passou o mouse, abriu</h3>
-              <p>O alerta mais grave vem em destaque, com Reconhecer e Abrir. O resto fica numa lista curta, cada um com o servidor de onde veio.</p>
+              <p>O alerta mais grave vem em destaque, com Reconhecer e Abrir. O resto fica numa lista curta, do mais grave para o menos grave.</p>
             </li>
           </ol>
-        </div>
-      </section>
-
-      <section>
-        <div class="wrap split">
-          <div>
-            <h2>Vários Zabbix numa lista só</h2>
-            <p class="intro">Cadastre quantos servidores precisar, por exemplo um 6.0 com clientes antigos e um 7.0. A barra junta os alertas e o Reconhecer vai para o servidor certo.</p>
-            <ul class="facts">
-              <li>A versão é detectada sozinha. Não precisa saber se o token vai no cabeçalho ou no corpo.</li>
-              <li>Testar conexão explica o que falta: token sem permissão nos hosts, severidade mínima alta demais.</li>
-              <li>Servidor fora do ar não some com os alertas dos outros.</li>
-            </ul>
-          </div>
-          <figure class="shot tall"><img src="assets/shots/settings-zabbix.png" width="521" height="440" alt="Configurações do TopWatch com o servidor Zabbix 7 conectado" loading="lazy" /></figure>
         </div>
       </section>
 
@@ -134,7 +118,7 @@ joao.silva       True
           <dl class="specs">
             <div>
               <dt>Leve no servidor</dt>
-              <dd>Uma consulta por servidor a cada 60 segundos, com os hosts em cache. Menos que um dashboard do Zabbix aberto.</dd>
+              <dd>Uma consulta a cada 60 segundos, com os hosts em cache. Menos que um dashboard do Zabbix aberto.</dd>
             </div>
             <div>
               <dt>Tokens protegidos</dt>
@@ -152,33 +136,13 @@ joao.silva       True
         </div>
       </section>
 
-      <section id="equipes" class="band">
-        <div class="wrap split">
-          <div>
-            <h2>Para o NOC inteiro</h2>
-            <p class="intro">A edição para equipes junta o TopWatch aos outros sistemas do time e vem com quem cuida dele.</p>
-          </div>
-          <div>
-            <ul class="offer">
-              <li><b>Plugin GLPI</b> Os chamados não solucionados numa aba própria, só os seus se você quiser.</li>
-              <li><b>Implantação</b> Instalação e configuração nas estações do NOC, com os seus servidores.</li>
-              <li><b>Suporte</b> Ajustes quando o Zabbix ou o GLPI atualizarem, e correções sem esperar.</li>
-            </ul>
-            <div class="actions left">
-              <a class="btn primary" href="https://www.linkedin.com/in/vituhzzz/">Falar sobre a edição para equipes</a>
-              <a class="btn" href="plugins/">Ver os plugins</a>
-            </div>
-          </div>
-        </div>
-      </section>
-
       <section id="perguntas">
         <div class="wrap narrow">
           <h2>Perguntas frequentes</h2>
           <div class="faq">
             <details>
               <summary>É grátis mesmo?</summary>
-              <p>Sim. O TopWatch é software livre, sob a licença AGPL-3.0: pode usar em casa e na empresa. A edição para equipes, com plugins como o GLPI, implantação e suporte, é paga.</p>
+              <p>Sim. O TopWatch é software livre, sob a licença AGPL-3.0: pode usar em casa e na empresa.</p>
             </details>
             <details>
               <summary>Funciona com a minha versão do Zabbix?</summary>
@@ -189,8 +153,8 @@ joao.silva       True
               <p>Leitura nos grupos de hosts que você quer ver. Para o botão Reconhecer funcionar, o usuário precisa de permissão de escrita nesses hosts. O ideal é um usuário dedicado.</p>
             </details>
             <details>
-              <summary>Vai pesar no nosso Zabbix?</summary>
-              <p>Não. São uma consulta de problemas por servidor a cada 60 segundos (mínimo de 30) e uma busca de hosts só quando aparece um trigger novo. Com o time inteiro usando, ainda é pouco para um Zabbix de produção.</p>
+              <summary>Vai pesar no Zabbix?</summary>
+              <p>Não. É uma consulta de problemas a cada 60 segundos (mínimo de 30) e uma busca de hosts só quando aparece um trigger novo.</p>
             </details>
             <details>
               <summary>O Windows ou o antivírus bloqueou. E agora?</summary>

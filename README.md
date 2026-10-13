@@ -6,14 +6,14 @@ Uma barrinha discreta no topo da tela que mostra os **alertas do Zabbix**. Passo
 
 ![TopWatch aberto, com um alerta de Desastre em destaque, alertas de dois servidores Zabbix e o Vigia de olho](docs/preview.png)
 
-Feito pra quem trabalha em NOC / suporte de infra e não quer ficar com uma aba do Zabbix aberta o dia inteiro. Outras integrações, como sistemas de chamados, entram por [plugins](#plugins).
+Feito pra quem não quer ficar com uma aba do Zabbix aberta o dia inteiro. Outras integrações, como sistemas de chamados, entram por [plugins](#plugins).
 
 ## O que ela faz
 
 - **Luz do TopWatch**: verde quando está tudo calmo, amarela/laranja/vermelha conforme a severidade do pior alerta aberto. Em Alta ou Desastre, um feixe gira em volta da luz.
 - **Pílula inteligente**: recolhida, mostra a contagem (`3 alertas`) ou, se tiver algo grave, direto o que é (`Desastre · srv-app02`).
 - **Card de destaque**: ao abrir, o alerta mais grave vem em cima com **Reconhecer** (ack no Zabbix) e **Abrir**. O resto fica numa lista compacta.
-- **Vários Zabbix ao mesmo tempo**: cadastre quantos servidores quiser (ex.: um 6.0 com clientes antigos e um 7.0). Os alertas aparecem juntos, cada um com a etiqueta do servidor de onde veio, e o **Reconhecer** vai pro servidor certo. Se um cair, os outros continuam aparecendo.
+- **Vários Zabbix ao mesmo tempo**: cadastre quantos servidores quiser, de versões diferentes. Os alertas aparecem juntos, cada um com a etiqueta do servidor de onde veio, e o **Reconhecer** vai pro servidor certo. Se um cair, os outros continuam aparecendo.
 - **Notificação do Windows** para problemas novos de severidade Alta ou Desastre.
 - **Vigia**: um robozinho que segue o mouse, olha pra linha sob o cursor, leva susto com alerta novo, fica vermelho no Desastre, acena quando você reconhece e desliga quando está tudo calmo. Clique nele pra cutucar (três vezes rápido e ele dá glitch). Dá pra desligar nas configurações.
 
@@ -63,8 +63,6 @@ Plugins adicionam integrações com outros sistemas. Cada plugin ganha uma aba n
 
 **Criar um plugin:** é uma pasta com um `index.js` que declara nome, aba e campos de configuração, e devolve os itens a mostrar. O formato completo está comentado no topo de [`src/plugins.js`](src/plugins.js). Pra desenvolver sem instalar, aponte a variável `TOPWATCH_PLUGINS` pra pasta onde estão os seus plugins.
 
-**Integração com GLPI:** está disponível na edição para equipes, como plugin. Veja [Licença](#licença).
-
 ## Segurança
 
 - Tokens ficam criptografados com o `safeStorage` do Electron (DPAPI do Windows) e nunca voltam em texto puro pra tela.
@@ -110,4 +108,4 @@ Desde 13/10/2026, o TopWatch é distribuído sob a [GNU AGPL-3.0](LICENSE). Voc�
 
 As versões publicadas até o commit `af03e0c` continuam sob a licença MIT, como foram publicadas.
 
-Copyright (c) 2026 Victor Hugo Antonio. Para licença comercial (uso sem as obrigações da AGPL), suporte ou a edição para equipes, fale comigo pelo [LinkedIn](https://www.linkedin.com/in/vituhzzz/).
+Copyright (c) 2026 Victor Hugo Antonio. Para licença comercial (uso sem as obrigações da AGPL) ou suporte, fale comigo pelo [LinkedIn](https://www.linkedin.com/in/vituhzzz/).

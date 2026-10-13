@@ -468,7 +468,7 @@ h3 {
 .flow .shot {
   display: grid;
   place-items: start center;
-  height: 150px;
+  padding-bottom: 28px;
 }
 
 .flow .shot img {
@@ -486,9 +486,9 @@ h3 {
 
 .flow-c .shot {
   grid-row: span 2;
-  height: auto;
-  padding: 0 32px;
+  padding: 0;
   display: block;
+  background: #0a0b0d;
 }
 
 .flow-c .shot img {
@@ -513,30 +513,8 @@ h3 {
   align-items: center;
 }
 
-.shot.tall {
-  padding: 28px 28px 0;
-  background: #14161a;
-}
-
-.shot.tall img {
-  border-radius: 10px 10px 0 0;
-}
-
 .shot.gif {
   background: #0d0f14;
-}
-
-.facts {
-  margin-top: 26px;
-  list-style: none;
-  display: grid;
-  gap: 14px;
-}
-
-.facts li {
-  padding-left: 18px;
-  border-left: 2px solid var(--rule);
-  color: var(--soft);
 }
 
 .specs {
@@ -559,39 +537,6 @@ h3 {
   margin-top: 8px;
   color: var(--soft);
   font-size: 15.5px;
-}
-
-/* faixa para equipes */
-.band {
-  margin-top: 112px;
-  padding: 88px 0;
-  background: var(--deep);
-  border-block: 1px solid var(--rule);
-}
-
-.band .split {
-  align-items: start;
-}
-
-.offer {
-  list-style: none;
-  display: grid;
-  gap: 18px;
-}
-
-.offer li {
-  color: var(--soft);
-}
-
-.offer b {
-  display: block;
-  color: var(--ink);
-  font: 600 18px/1.3 var(--display);
-  margin-bottom: 2px;
-}
-
-.actions.left {
-  margin-top: 30px;
 }
 
 /* perguntas */
@@ -811,11 +756,6 @@ footer nav {
   color: var(--mute);
 }
 
-.plugin .tab-preview {
-  margin-top: 16px;
-  max-width: 520px;
-}
-
 .note {
   margin-top: 26px;
   color: var(--soft);
@@ -825,8 +765,7 @@ footer nav {
 
 @media (max-width: 900px) {
   .hero,
-  .split,
-  .band .split {
+  .split {
     grid-template-columns: 1fr;
     gap: 32px;
   }
@@ -842,7 +781,6 @@ footer nav {
   .flow-c .shot {
     grid-row: auto;
     margin-bottom: 18px;
-    padding: 0 12px;
   }
   .nav ul li:nth-child(3) {
     display: none;
@@ -861,10 +799,6 @@ footer nav {
   }
   section {
     padding-top: 80px;
-  }
-  .band {
-    margin-top: 80px;
-    padding: 64px 0;
   }
   .desk {
     height: 380px;
@@ -886,9 +820,6 @@ footer nav {
   .specs,
   .steps {
     grid-template-columns: 1fr;
-  }
-  .flow .shot {
-    height: 110px;
   }
   .plugin {
     grid-template-columns: 44px minmax(0, 1fr);

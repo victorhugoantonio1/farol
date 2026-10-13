@@ -5,11 +5,11 @@
   const SEV = ['Não classificado', 'Informação', 'Atenção', 'Média', 'Alta', 'Desastre'];
   const MIN = 60 * 1000;
   const PROBLEMS = [
-    { title: 'Servidor sem resposta ao ICMP', host: 'srv-app02', severity: 5, ago: 4, srv: 'Zabbix 7' },
-    { title: 'Espaço em disco C: abaixo de 10%', host: 'srv-db01', severity: 4, ago: 38, srv: 'Zabbix 6' },
-    { title: 'Uso de CPU acima de 90% há 15 min', host: 'srv-rds03', severity: 3, ago: 22, srv: 'Zabbix 7' },
-    { title: 'Serviço "Spooler" parado', host: 'srv-print01', severity: 2, ago: 95, srv: 'Zabbix 6' },
-    { title: 'Certificado SSL expira em 14 dias', host: 'web-portal', severity: 2, ago: 600, srv: 'Zabbix 7' },
+    { title: 'Servidor sem resposta ao ICMP', host: 'srv-app02', severity: 5, ago: 4 },
+    { title: 'Espaço em disco C: abaixo de 10%', host: 'srv-db01', severity: 4, ago: 38 },
+    { title: 'Uso de CPU acima de 90% há 15 min', host: 'srv-rds03', severity: 3, ago: 22 },
+    { title: 'Serviço "Spooler" parado', host: 'srv-print01', severity: 2, ago: 95 },
+    { title: 'Certificado SSL expira em 14 dias', host: 'web-portal', severity: 2, ago: 600 },
   ];
   // cada cenário é um filtro sobre os problemas de exemplo
   const SCENARIOS = {
@@ -32,8 +32,8 @@
       .map((p) => ({
         id: `demo-${p.i}`,
         eventid: `demo-${p.i}`,
-        serverId: p.srv,
-        serverName: p.srv,
+        serverId: 'zabbix',
+        serverName: 'Zabbix',
         source: 'zabbix',
         title: p.title,
         severity: p.severity,
@@ -46,7 +46,7 @@
     return {
       demo: false,
       updatedAt: now,
-      zabbix: { enabled: true, items, error: null, multi: true },
+      zabbix: { enabled: true, items, error: null, multi: false },
       plugins: [],
       ui: { display: 'both', highlight: true, mascot: true },
     };
