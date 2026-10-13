@@ -15,6 +15,7 @@ const {
   dialog,
 } = require('electron');
 const path = require('node:path');
+const fs = require('node:fs');
 
 const { createStore } = require('./src/config');
 const zabbix = require('./src/zabbix');
@@ -317,38 +318,115 @@ function restartPolling() {
 
 // ---------- bandeja ----------
 
-// O ícone é o Vigia em miniatura (assets/tray, gerado por scripts/tray-icons.py).
-// A cor do olho segue o pior alerta, ele pisca e olha pros lados de vez em quando,
-// e o olho pulsa em Alta/Desastre.
+// O ícone é o Vigia em miniatura, animado como um GIF em loop: os quadros ficam numa
+// folha só (assets/tray, gerada por scripts/tray-icons.py) e trocam a cada TRAY_TICK ms.
+// A cor do olho segue o pior alerta; em Alta/Desastre o olho "respira" em vez de olhar pros lados.
 const TRAY_DIR = path.join(__dirname, 'assets', 'tray');
+const TRAY_TICK = 60; // ~16 quadros por segundo
 const trayCache = new Map();
-let trayLevelNow = null;
+let trayMeta = null;
+let traySheet = null;
+let trayLevelNow = 'ok';
 let trayFrameNow = null;
-let trayIdleTimer = null;
-let trayPoseTimer = null;
-let trayPulseTimer = null;
+let trayQueue = [];
+let trayTicker = null;
 
+// uma folha por resolução: 16 px (100%), 24 px (150%) e 32 px (200%)
+const TRAY_SCALES = [
+  [1, 'sheet.png'],
+  [1.5, 'sheet@1.5x.png'],
+  [2, 'sheet@2x.png'],
+];
+
+function loadTraySheet() {
+  try {
+    trayMeta = JSON.parse(fs.readFileSync(path.join(TRAY_DIR, 'frames.json'), 'utf8'));
+    // lidas como imagem comum (sem a mágica do @2x), pra recortar em pixels de cada folha
+    traySheet = TRAY_SCALES.map(([scale, file]) => [scale, nativeImage.createFromBuffer(fs.readFileSync(path.join(TRAY_DIR, file)))]).filter(
+      ([, img]) => !img.isEmpty()
+    );
+    if (!traySheet.length) traySheet = null;
+  } catch {
+    traySheet = null;
+  }
+}
+
+// recorta o quadro em cada resolução e junta tudo numa imagem só (o Windows escolhe a certa)
 function trayImage(level, frame) {
-  const key = `${level}-${frame}`;
+  if (!traySheet) return null;
+  const key = `${level}:${frame}`;
   if (!trayCache.has(key)) {
-    // createFromPath pega sozinho as versões @1.5x e @2x pra telas com zoom
-    const img = nativeImage.createFromPath(path.join(TRAY_DIR, `${key}.png`));
-    trayCache.set(key, img.isEmpty() ? null : img);
+    const row = trayMeta.levels.indexOf(level);
+    const col = trayMeta.frames.indexOf(frame);
+    let img = null;
+    if (row >= 0 && col >= 0) {
+      img = nativeImage.createEmpty();
+      for (const [scale, sheet] of traySheet) {
+        const s = Math.round(trayMeta.size * scale);
+        const part = sheet.crop({ x: col * s, y: row * s, width: s, height: s });
+        img.addRepresentation({ scaleFactor: scale, width: s, height: s, buffer: part.toPNG() });
+      }
+    }
+    trayCache.set(key, img);
   }
   return trayCache.get(key);
 }
 
 function trayIcon() {
-  return trayImage('ok', 'open') || nativeImage.createEmpty();
+  loadTraySheet();
+  return trayImage('ok', 'x0') || nativeImage.createEmpty();
 }
 
 function setTrayFrame(frame) {
-  if (!tray || tray.isDestroyed()) return;
-  if (frame === trayFrameNow) return;
-  const img = trayImage(trayLevelNow || 'ok', frame);
+  if (!tray || tray.isDestroyed() || frame === trayFrameNow) return;
+  const img = trayImage(trayLevelNow, frame);
   if (!img) return;
   tray.setImage(img);
   trayFrameNow = frame;
+}
+
+// ---- roteiros da animação (listas de quadros, um por TRAY_TICK) ----
+
+const hold = (frame, ms) => Array(Math.max(1, Math.round(ms / TRAY_TICK))).fill(frame);
+const easeInOut = (t) => (t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2);
+// desliza o olho de "from" até "to" (de -5 a 5) com aceleração suave
+function slide(from, to, ms) {
+  const n = Math.max(1, Math.round(ms / TRAY_TICK));
+  const out = [];
+  for (let i = 1; i <= n; i++) out.push(`x${Math.round(from + (to - from) * easeInOut(i / n))}`);
+  return out;
+}
+const BLINK = ['b1', 'b2', 'b3', 'b3', 'b2', 'b1'];
+const pick = (list) => list[Math.floor(Math.random() * list.length)];
+
+// tudo calmo ou alerta leve: olha em volta, pisca
+function calmLoop() {
+  const side = Math.random() < 0.5 ? -5 : 5;
+  return pick([
+    // varre de um lado ao outro
+    () => [...hold('x0', 700), ...slide(0, side, 420), ...hold(`x${side}`, 650), ...slide(side, -side, 760), ...hold(`x${-side}`, 650), ...slide(-side, 0, 420), ...hold('x0', 300), ...BLINK, ...hold('x0', 600)],
+    // olha pra um lado, volta, pisca duas vezes
+    () => [...hold('x0', 500), ...BLINK, ...hold('x0', 700), ...slide(0, side, 450), ...hold(`x${side}`, 1100), ...slide(side, 0, 450), ...hold('x0', 400), ...BLINK, ...hold('x0', 120), ...BLINK, ...hold('x0', 500)],
+    // olhadinhas curtas, como quem lê
+    () => [...hold('x0', 400), ...slide(0, -2, 260), ...hold('x-2', 380), ...slide(-2, 2, 380), ...hold('x2', 420), ...slide(2, -3, 420), ...hold('x-3', 500), ...slide(-3, 0, 300), ...hold('x0', 300), ...BLINK, ...hold('x0', 700)],
+  ])();
+}
+
+// Alta/Desastre: o olho "respira" (apaga e acende suave) e pisca de vez em quando
+function pulseLoop(level) {
+  const step = level === '5' ? 100 : 170;
+  const breath = ['x0', 'p1', 'p2', 'p3', 'p4', 'p4', 'p3', 'p2', 'p1', 'x0'].flatMap((f) => hold(f, step));
+  return [...breath, ...hold('x0', step * 2), ...breath, ...hold('x0', step * 2), ...breath, ...hold('x0', step), ...BLINK, ...hold('x0', step * 2)];
+}
+
+function trayTick() {
+  if (!trayQueue.length) trayQueue = trayLevelNow === '4' || trayLevelNow === '5' ? pulseLoop(trayLevelNow) : calmLoop();
+  setTrayFrame(trayQueue.shift());
+}
+
+function startTrayAnimation() {
+  clearInterval(trayTicker);
+  if (traySheet) trayTicker = setInterval(trayTick, TRAY_TICK);
 }
 
 // mesma regra da luz da ilha: o que a barra está mostrando define a cor
@@ -365,46 +443,17 @@ function trayLevel() {
   return errors.some(Boolean) ? 'error' : 'ok';
 }
 
-// De tempos em tempos ele faz alguma coisa: pisca, olha pra um lado ou varre de um lado ao outro.
-// Com alerta grave (olho pulsando), só pisca, pra não brigar com o pulso.
-function trayPose(steps) {
-  clearTimeout(trayPoseTimer);
-  const [frame, ms] = steps[0];
-  setTrayFrame(frame);
-  trayPoseTimer = setTimeout(() => (steps.length > 1 ? trayPose(steps.slice(1)) : setTrayFrame('open')), ms);
-}
-
-let trayBlinksInRow = 0;
-function scheduleTrayIdle() {
-  clearTimeout(trayIdleTimer);
-  trayIdleTimer = setTimeout(() => {
-    // no máximo duas piscadas seguidas: na terceira ele olha pro lado
-    const r = trayBlinksInRow >= 2 ? 0.5 + Math.random() * 0.5 : Math.random();
-    if (trayPulseTimer || r < 0.35) trayPose([['blink', 160]]);
-    else if (r < 0.45) trayPose([['blink', 140], ['open', 180], ['blink', 140]]);
-    else if (r < 0.75) trayPose([[Math.random() < 0.5 ? 'left' : 'right', 1300]]);
-    else trayPose([['left', 700], ['open', 150], ['right', 700]]);
-    trayBlinksInRow = !trayPulseTimer && r >= 0.45 ? 0 : trayBlinksInRow + 1;
-    scheduleTrayIdle();
-  }, 3000 + Math.random() * 3500);
-}
-
 function updateTrayIcon() {
   const level = trayLevel();
   if (level === trayLevelNow) return;
+  const wasPulsing = trayLevelNow === '4' || trayLevelNow === '5';
+  const pulsing = level === '4' || level === '5';
   trayLevelNow = level;
+  // mesmo quadro, cor nova; troca de roteiro só se mudou de calmo pra alerta grave (ou o contrário)
+  const frame = trayFrameNow || 'x0';
   trayFrameNow = null;
-  setTrayFrame('open');
-  clearInterval(trayPulseTimer);
-  trayPulseTimer = null;
-  if (level === '4' || level === '5') {
-    // Desastre pulsa mais rápido que Alta
-    let on = true;
-    trayPulseTimer = setInterval(() => {
-      on = !on;
-      setTrayFrame(on ? 'open' : 'dim');
-    }, level === '5' ? 550 : 1000);
-  }
+  setTrayFrame(frame);
+  if (wasPulsing !== pulsing) trayQueue = [...slide(Number((frame.match(/^x(-?\d)/) || [0, 0])[1]), 0, 240)];
 }
 
 function updateTrayTooltip() {
@@ -457,7 +506,7 @@ function createTray() {
   tray.on('click', () => setHidden(!hidden));
   buildTrayMenu();
   updateTrayTooltip();
-  scheduleTrayIdle();
+  startTrayAnimation();
 }
 
 // ---------- IPC ----------
@@ -540,7 +589,7 @@ ipcMain.handle('settings:install-plugin', async (e) => {
 
 ipcMain.on('settings:open-plugins-folder', (e) => {
   if (!fromWindow(e, settingsWin)) return;
-  require('node:fs').mkdirSync(pluginsRoot(), { recursive: true });
+  fs.mkdirSync(pluginsRoot(), { recursive: true });
   shell.openPath(pluginsRoot());
 });
 
@@ -614,8 +663,6 @@ app.on('window-all-closed', (e) => e.preventDefault()); // vive na bandeja
 app.on('will-quit', () => {
   globalShortcut.unregisterAll();
   clearInterval(pollTimer);
-  clearInterval(trayPulseTimer);
-  clearTimeout(trayIdleTimer);
-  clearTimeout(trayPoseTimer);
+  clearInterval(trayTicker);
   for (const p of plugins) closePlugin(p);
 });
