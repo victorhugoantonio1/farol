@@ -9,7 +9,7 @@
   <body>
     <main>
       <h1><span class="mark"></span>TopWatch</h1>
-      <p class="lead">Alertas do Zabbix e chamados do GLPI numa barrinha no topo da tela. Passe o mouse em cima pra abrir; <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>F</kbd> fixa aberta.</p>
+      <p class="lead">Alertas do Zabbix numa barrinha no topo da tela. Passe o mouse em cima pra abrir; <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>F</kbd> fixa aberta.</p>
 
       <div id="warn-crypto" class="warn hidden">A criptografia do sistema não está disponível; os tokens vão ficar salvos sem criptografia neste computador.</div>
 
@@ -24,7 +24,7 @@
           <input type="checkbox" id="notify" />
         </label>
         <label class="row">
-          <span><b>Atualizar a cada</b><small>Entre 10 e 600 segundos.</small></span>
+          <span><b>Atualizar a cada</b><small>Entre 30 e 600 segundos.</small></span>
           <span class="unit"><input type="number" id="pollSeconds" min="30" max="600" step="10" /> s</span>
         </label>
       </section>
@@ -34,9 +34,9 @@
         <label class="field">
           <b>O que a barra mostra</b>
           <select id="ui.display">
-            <option value="both">Alertas e chamados</option>
+            <option value="both">Tudo</option>
             <option value="zabbix">Só alertas (Zabbix)</option>
-            <option value="glpi">Só chamados (GLPI)</option>
+            <!-- uma opção por plugin instalado -->
           </select>
           <small>Vale pra barra recolhida e pras abas do painel.</small>
         </label>
@@ -73,37 +73,20 @@
         <small class="hint-servers">Os alertas de todos os servidores aparecem juntos, com uma etiqueta dizendo de qual veio. A versão (6.0, 6.4, 7…) é detectada sozinha.</small>
       </section>
 
+      <!-- uma seção por plugin instalado -->
+      <div id="plugin-sections"></div>
+
       <section>
-        <div class="section-head">
-          <h2>GLPI</h2>
-          <label class="switch inline"><input type="checkbox" id="glpi.enabled" /> Ativo</label>
-        </div>
-        <label class="field">
-          <b>URL do GLPI</b>
-          <input type="url" id="glpi.url" placeholder="https://glpi.empresa.local" spellcheck="false" />
-          <small>O caminho <code>/apirest.php</code> é adicionado sozinho. A API precisa estar habilitada em Configurar → Geral → API.</small>
-        </label>
-        <label class="field">
-          <b>Token de usuário</b>
-          <input type="password" id="glpi.userToken" autocomplete="off" spellcheck="false" />
-          <small id="glpi.userToken-hint">Fica no seu perfil, em Configurações → Chaves de acesso remoto → Token da API.</small>
-        </label>
-        <label class="field">
-          <b>App-Token <span class="opt">(opcional)</span></b>
-          <input type="password" id="glpi.appToken" autocomplete="off" spellcheck="false" />
-          <small id="glpi.appToken-hint">Só se o cliente de API do GLPI exigir.</small>
-        </label>
-        <label class="check"><input type="checkbox" id="glpi.onlyMine" /> Só chamados atribuídos a mim</label>
-        <label class="field">
-          <b>Seu login no GLPI <span class="opt">(opcional)</span></b>
-          <input type="text" id="glpi.technician" placeholder="ex.: joao.silva" autocomplete="off" spellcheck="false" />
-          <small>Preencha se o token é de um usuário de serviço (ex.: um usuário "api"). Aí "só os meus" mostra os chamados deste técnico, não os do dono do token.</small>
-        </label>
-        <label class="check"><input type="checkbox" id="glpi.insecure" /> Aceitar certificado autoassinado</label>
+        <h2>Plugins</h2>
+        <p class="muted" id="plugins-none">Nenhum plugin instalado. Plugins adicionam integrações com outros sistemas, como sistemas de chamados, cada uma na sua aba.</p>
+        <ul id="plugins-list" class="plugins-list"></ul>
+        <div id="plugins-errors" class="warn hidden"></div>
         <div class="test">
-          <button class="secondary" data-test="glpi">Testar conexão</button>
-          <span class="result" id="result-glpi"></span>
+          <button class="secondary" id="install-plugin">Instalar plugin…</button>
+          <button class="link" id="open-plugins">Abrir pasta de plugins</button>
+          <span class="result" id="result-install"></span>
         </div>
+        <small>Instale só plugins de quem você confia: eles rodam com acesso ao computador.</small>
       </section>
     </main>
 

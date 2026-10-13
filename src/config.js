@@ -7,24 +7,18 @@ const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
 
-// segredos de caminho fixo; os tokens dos servidores Zabbix são tratados à parte
-const SECRETS = [
-  ['glpi', 'userToken'],
-  ['glpi', 'appToken'],
-];
-
 const AUTH_MODES = ['auto', 'header', 'body'];
 
 const DEFAULTS = {
   demo: true,
   pollSeconds: 60,
   notify: true,
-  // display: 'both' | 'zabbix' | 'glpi'; highlight: alerta grave toma a pílula; mascot: Vigia
+  // display: 'both' (tudo) | 'zabbix' | id de um plugin; highlight: alerta grave toma a pílula; mascot: Vigia
   ui: { display: 'both', highlight: true, mascot: true },
   // servers: [{ id, name, url, token, auth: 'auto'|'header'|'body', insecure, enabled }]
   zabbix: { enabled: false, minSeverity: 2, servers: [] },
-  // technician: login do técnico, pra quando o token é de um usuário de serviço
-  glpi: { enabled: false, url: '', userToken: '', appToken: '', onlyMine: true, technician: '', insecure: false },
+  // configuração de cada plugin, pelo id: { enabled, ...campos do plugin }
+  plugins: {},
 };
 
 function clone(o) {
@@ -43,7 +37,7 @@ function merge(base, extra) {
   return out;
 }
 
-// Intervalo da coleta: no mínimo 30 s pra não pesar no Zabbix/GLPI de ninguém.
+// Intervalo da coleta: no mínimo 30 s pra não pesar nos servidores de ninguém.
 function clampPoll(v) {
   return Math.min(600, Math.max(30, Number(v) || 60));
 }
@@ -65,22 +59,49 @@ function normalizeServer(s, i) {
   };
 }
 
-// Configuração antiga (um Zabbix só, com url/token direto em "zabbix") vira o primeiro servidor.
+// Configurações antigas:
+// - um Zabbix só, com url/token direto em "zabbix" -> vira o primeiro servidor;
+// - seção "glpi" do tempo em que o GLPI era parte do núcleo -> vira a config do plugin "glpi".
 function migrate(raw) {
-  const z = raw && raw.zabbix;
-  if (!z || Array.isArray(z.servers)) return raw;
-  const out = clone(raw);
-  const { url, token, legacyAuth, insecure, ...rest } = z;
-  out.zabbix = { ...rest, servers: url || token ? [{ id: 'principal', name: 'Zabbix', url, token, auth: legacyAuth ? 'body' : 'auto', insecure }] : [] };
+  if (!raw || typeof raw !== 'object') return raw;
+  let out = raw;
+  const z = raw.zabbix;
+  if (z && !Array.isArray(z.servers)) {
+    out = clone(out);
+    const { url, token, legacyAuth, insecure, ...rest } = z;
+    out.zabbix = { ...rest, servers: url || token ? [{ id: 'principal', name: 'Zabbix', url, token, auth: legacyAuth ? 'body' : 'auto', insecure }] : [] };
+  }
+  if (out.glpi && typeof out.glpi === 'object') {
+    out = clone(out);
+    out.plugins = { ...(out.plugins || {}) };
+    if (!out.plugins.glpi) out.plugins.glpi = out.glpi;
+    delete out.glpi;
+  }
   return out;
 }
 
-function createStore({ dir, safeStorage }) {
+// plugins: [{ id, fields }] dos plugins instalados (pra saber quais campos são segredos)
+function createStore({ dir, safeStorage, plugins = [] }) {
   const file = path.join(dir, 'config.json');
   const canEncrypt = !!(safeStorage && safeStorage.isEncryptionAvailable());
+  let known = new Map();
+
+  function setKnown(list) {
+    known = new Map(list.map((p) => [p.id, p]));
+  }
+  setKnown(plugins);
+
+  function pluginDefaults(def) {
+    const out = { enabled: false };
+    for (const f of def.fields) out[f.key] = f.default !== undefined ? f.default : f.type === 'checkbox' ? false : '';
+    return out;
+  }
+
+  const secretsOf = (def) => def.fields.filter((f) => f.type === 'secret').map((f) => f.key);
 
   function encode(value) {
     if (!value) return '';
+    if (typeof value === 'object') return value; // já criptografado (plugin não instalado agora)
     if (canEncrypt) return { enc: safeStorage.encryptString(value).toString('base64') };
     return { plain: value };
   }
@@ -98,6 +119,21 @@ function createStore({ dir, safeStorage }) {
     return value.plain || '';
   }
 
+  // Campo do plugin no tipo certo; o que não está nos fields é descartado.
+  function cleanPlugin(def, values) {
+    const out = pluginDefaults(def);
+    if (values && 'enabled' in values) out.enabled = !!values.enabled;
+    for (const f of def.fields) {
+      if (!values || !(f.key in values)) continue;
+      const v = values[f.key];
+      if (f.type === 'checkbox') out[f.key] = !!v;
+      else if (f.type === 'number') out[f.key] = Number.isFinite(Number(v)) ? Number(v) : out[f.key];
+      else if (f.type === 'secret') out[f.key] = v || '';
+      else out[f.key] = String(v ?? '').trim().slice(0, 500);
+    }
+    return out;
+  }
+
   let current = load();
 
   function load() {
@@ -107,17 +143,35 @@ function createStore({ dir, safeStorage }) {
     } catch {
       // primeiro uso
     }
-    const cfg = merge(DEFAULTS, migrate(raw));
-    for (const [section, key] of SECRETS) cfg[section][key] = decode(cfg[section][key]);
+    const migrated = migrate(raw) || {};
+    const cfg = merge(DEFAULTS, migrated);
     cfg.zabbix.servers = (cfg.zabbix.servers || []).map((s, i) => normalizeServer({ ...s, token: decode(s.token) }, i));
     cfg.pollSeconds = clampPoll(cfg.pollSeconds);
+    // plugins instalados: decodifica os segredos; não instalados: guarda como veio (criptografado)
+    const plugins = {};
+    for (const [id, values] of Object.entries(migrated.plugins || {})) {
+      const def = known.get(id);
+      if (!def) {
+        plugins[id] = values;
+        continue;
+      }
+      const decoded = { ...values };
+      for (const key of secretsOf(def)) decoded[key] = decode(values[key]);
+      plugins[id] = cleanPlugin(def, decoded);
+    }
+    for (const def of known.values()) if (!plugins[def.id]) plugins[def.id] = pluginDefaults(def);
+    cfg.plugins = plugins;
     return cfg;
   }
 
   function persist() {
     const out = clone(current);
-    for (const [section, key] of SECRETS) out[section][key] = encode(out[section][key]);
     out.zabbix.servers = out.zabbix.servers.map((s) => ({ ...s, token: encode(s.token) }));
+    for (const [id, values] of Object.entries(out.plugins)) {
+      const def = known.get(id);
+      if (!def) continue;
+      for (const key of secretsOf(def)) values[key] = encode(values[key]);
+    }
     fs.mkdirSync(dir, { recursive: true });
     fs.writeFileSync(file, JSON.stringify(out, null, 2), { mode: 0o600 });
   }
@@ -126,30 +180,35 @@ function createStore({ dir, safeStorage }) {
     return clone(current);
   }
 
-  // Versão segura para a tela: segredos viram "tem/não tem".
+  // Versão segura para a tela: segredos viram "tem/não tem"; plugin não instalado não aparece.
   function getMasked() {
     const out = get();
     const has = {};
-    for (const [section, key] of SECRETS) {
-      has[`${section}.${key}`] = !!out[section][key];
-      out[section][key] = '';
-    }
     out.zabbix.servers = out.zabbix.servers.map((s) => {
       has[`zabbix.servers.${s.id}.token`] = !!s.token;
       return { ...s, token: '' };
     });
+    for (const id of Object.keys(out.plugins)) {
+      const def = known.get(id);
+      if (!def) {
+        delete out.plugins[id];
+        continue;
+      }
+      for (const key of secretsOf(def)) {
+        has[`plugins.${id}.${key}`] = !!out.plugins[id][key];
+        out.plugins[id][key] = '';
+      }
+    }
     return { config: out, hasSecret: has, encryptionAvailable: canEncrypt };
   }
 
   // Aplica o que veio da tela. Campo secreto vazio = manter o atual.
   function withChanges(changes) {
-    const next = merge(current, changes);
-    for (const [section, key] of SECRETS) {
-      const incoming = changes && changes[section] ? changes[section][key] : undefined;
-      if (incoming === undefined || incoming === '') next[section][key] = current[section][key];
-    }
+    const { plugins: pluginChanges, ...rest } = changes || {};
+    const next = merge(current, rest);
+    next.plugins = clone(current.plugins);
 
-    const incomingServers = changes && changes.zabbix && Array.isArray(changes.zabbix.servers) ? changes.zabbix.servers : null;
+    const incomingServers = rest.zabbix && Array.isArray(rest.zabbix.servers) ? rest.zabbix.servers : null;
     if (incomingServers) {
       const byId = new Map(current.zabbix.servers.map((s) => [s.id, s]));
       next.zabbix.servers = incomingServers.slice(0, 10).map((s, i) => {
@@ -160,8 +219,18 @@ function createStore({ dir, safeStorage }) {
       next.zabbix.servers = clone(current.zabbix.servers);
     }
 
+    for (const [id, values] of Object.entries(pluginChanges || {})) {
+      const def = known.get(id);
+      if (!def || !values || typeof values !== 'object') continue;
+      const merged = { ...current.plugins[id], ...values };
+      for (const key of secretsOf(def)) {
+        if (values[key] === undefined || values[key] === '') merged[key] = current.plugins[id] ? current.plugins[id][key] : '';
+      }
+      next.plugins[id] = cleanPlugin(def, merged);
+    }
+
     next.pollSeconds = clampPoll(next.pollSeconds);
-    if (!['both', 'zabbix', 'glpi'].includes(next.ui.display)) next.ui.display = 'both';
+    if (!['both', 'zabbix', ...known.keys()].includes(next.ui.display)) next.ui.display = 'both';
     return next;
   }
 
@@ -176,7 +245,13 @@ function createStore({ dir, safeStorage }) {
     persist();
   }
 
-  return { get, getMasked, withChanges, save, setFlag, file, canEncrypt };
+  // Depois de instalar um plugin: relê o arquivo pra decodificar a config dele.
+  function setPlugins(list) {
+    setKnown(list);
+    current = load();
+  }
+
+  return { get, getMasked, withChanges, save, setFlag, setPlugins, file, canEncrypt };
 }
 
 module.exports = { createStore, DEFAULTS, migrate, normalizeServer };

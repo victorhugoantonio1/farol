@@ -20,5 +20,8 @@ contextBridge.exposeInMainWorld('topwatch', {
   // configurações
   getSettings: () => ipcRenderer.invoke('settings:get'),
   saveSettings: (changes) => ipcRenderer.invoke('settings:save', changes),
-  testConnection: (which, changes, serverId) => ipcRenderer.invoke('settings:test', which, changes, serverId),
+  // which = 'zabbix' (id = servidor) ou 'plugin' (id = plugin)
+  testConnection: (which, changes, id) => ipcRenderer.invoke('settings:test', which, changes, id),
+  installPlugin: () => ipcRenderer.invoke('settings:install-plugin'),
+  openPluginsFolder: () => ipcRenderer.send('settings:open-plugins-folder'),
 });

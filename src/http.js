@@ -1,7 +1,7 @@
 'use strict';
 // Requisição HTTP mínima usando só o Node. Fica no processo principal,
 // então não tem problema de CORS e dá pra aceitar certificado autoassinado
-// (comum em Zabbix/GLPI internos) quando o usuário pedir.
+// (comum em servidores internos) quando o usuário pedir.
 
 const http = require('node:http');
 const https = require('node:https');

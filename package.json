@@ -1,7 +1,7 @@
 {
   "name": "topwatch",
   "version": "0.1.0",
-  "description": "Uma barrinha no topo da tela com os alertas do Zabbix e os chamados do GLPI.",
+  "description": "Uma barrinha no topo da tela com os alertas do Zabbix, extensível por plugins.",
   "main": "main.js",
   "author": "Victor",
   "license": "AGPL-3.0-only",

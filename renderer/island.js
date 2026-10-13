@@ -22,14 +22,26 @@ function ui(s) {
   return { ...UI_DEFAULT, ...((s && s.ui) || {}) };
 }
 
-// o que cada modo de exibição considera
-function shows(s, source) {
-  const d = ui(s).display;
-  return d === 'both' || d === source;
+// plugins com aba (ativos, ou com dados de exemplo no demo)
+function pluginTabs(s) {
+  return (s.plugins || []).filter((p) => p.enabled);
 }
 
-// prioridade do GLPI virando "nível" da luz quando a barra mostra só chamados
-const PRIO_LEVEL = { 1: 1, 2: 1, 3: 2, 4: 4, 5: 5, 6: 5 };
+function pluginById(s, id) {
+  return pluginTabs(s).find((p) => p.id === id) || null;
+}
+
+// modo de exibição: 'both' (tudo), 'zabbix' ou o id de um plugin
+function display(s) {
+  const d = ui(s).display;
+  if (d === 'both' || d === 'zabbix' || pluginById(s, d)) return d;
+  return 'both'; // plugin escolhido não está mais instalado/ativo
+}
+
+function shows(s, source) {
+  const d = display(s);
+  return d === 'both' || d === source;
+}
 
 // ---------- utilidades ----------
 
@@ -55,11 +67,6 @@ function sevColor(sev) {
   return `var(--sev-${Math.min(5, Math.max(0, sev))})`;
 }
 
-// prioridade do GLPI (1–6) na mesma escala de cor dos alertas
-function prioColor(p) {
-  return sevColor({ 1: 1, 2: 1, 3: 2, 4: 4, 5: 5, 6: 5 }[p] ?? 0);
-}
-
 function openProblems(s) {
   return s.zabbix.items.filter((p) => !p.acknowledged);
 }
@@ -68,8 +75,8 @@ function sortedProblems(items) {
   return items.slice().sort((a, b) => a.acknowledged - b.acknowledged || b.severity - a.severity || b.since - a.since);
 }
 
-function sortedTickets(items) {
-  return items.slice().sort((a, b) => b.priority - a.priority || (b.updated || 0) - (a.updated || 0));
+function sortedPluginItems(items) {
+  return items.slice().sort((a, b) => b.level - a.level || (b.updated || b.since || 0) - (a.updated || a.since || 0));
 }
 
 // ---------- abrir / fechar ----------
@@ -107,10 +114,12 @@ function worstLevel(s) {
   if (shows(s, 'zabbix')) {
     const open = openProblems(s);
     if (open.length) return String(Math.max(...open.map((p) => p.severity)));
-  } else if (s.glpi.items.length) {
-    return String(Math.max(...s.glpi.items.map((t) => PRIO_LEVEL[t.priority] ?? 0)));
+  } else {
+    const p = pluginById(s, display(s));
+    if (p && p.items.length) return String(Math.max(...p.items.map((it) => it.level)));
   }
-  if ((shows(s, 'zabbix') && s.zabbix.error) || (shows(s, 'glpi') && s.glpi.error)) return 'error';
+  const visibleErrors = [shows(s, 'zabbix') && s.zabbix.error, ...pluginTabs(s).map((p) => shows(s, p.id) && p.error)];
+  if (visibleErrors.some(Boolean)) return 'error';
   return 'ok';
 }
 
@@ -119,7 +128,7 @@ function renderSummary(s) {
   summary.textContent = '';
   island.classList.remove('alerting');
 
-  if (!s.zabbix.enabled && !s.glpi.enabled) {
+  if (!s.zabbix.enabled && !pluginTabs(s).length) {
     summary.append(el('span', null, 'Configure o TopWatch'));
     return;
   }
@@ -135,11 +144,14 @@ function renderSummary(s) {
   }
 
   const z = openProblems(s).length;
-  const g = s.glpi.items.length;
   const parts = [];
   if (s.zabbix.enabled && shows(s, 'zabbix')) parts.push(`${z} alerta${z === 1 ? '' : 's'}`);
-  if (s.glpi.enabled && shows(s, 'glpi')) parts.push(`${g} chamado${g === 1 ? '' : 's'}`);
-  if (!parts.length) parts.push(shows(s, 'zabbix') ? 'Zabbix desativado' : 'GLPI desativado');
+  for (const p of pluginTabs(s)) {
+    if (!shows(s, p.id)) continue;
+    const n = p.items.length;
+    parts.push(`${n} ${n === 1 ? p.tab.singular : p.tab.plural}`);
+  }
+  if (!parts.length) parts.push('Zabbix desativado');
   parts.forEach((p, i) => {
     if (i) summary.append(el('span', 'sep', '·'));
     summary.append(el('span', null, p));
@@ -177,30 +189,37 @@ function renderHero(item) {
     ack.textContent = 'Reconhecer';
     $('hero-open').textContent = 'Abrir';
   } else {
-    hero.style.setProperty('--c', prioColor(item.priority));
-    hero.classList.toggle('pulse', item.priority >= 5);
-    meta.append(el('span', 'sev', item.priorityLabel));
-    meta.append(el('span', null, '·'));
-    meta.append(el('span', 'host', `#${item.number}`));
-    meta.append(el('span', null, '·'));
-    meta.append(el('span', null, item.statusLabel));
+    // item de plugin
+    const p = pluginById(state, item.source);
+    hero.style.setProperty('--c', sevColor(item.level));
+    hero.classList.toggle('pulse', item.level >= 5);
+    const bits = [item.levelLabel, item.tag, item.detail].filter(Boolean);
+    bits.forEach((b, i) => {
+      if (i) meta.append(el('span', null, '·'));
+      meta.append(el('span', i === 0 ? 'sev' : i === 1 ? 'host' : null, b));
+    });
     ack.classList.add('hidden');
-    $('hero-open').textContent = 'Abrir chamado';
+    $('hero-open').textContent = (p && p.tab.openLabel) || 'Abrir';
+    $('hero-open').classList.toggle('hidden', !item.url);
   }
+  if (item.source === 'zabbix') $('hero-open').classList.remove('hidden');
   $('hero-title').textContent = item.title;
 }
 
 function row(item) {
   const li = el('li', `row${item.acknowledged ? ' ack' : ''}`);
   li.title = item.title;
-  li.style.setProperty('--c', item.source === 'zabbix' ? sevColor(item.severity) : prioColor(item.priority));
+  const isZbx = item.source === 'zabbix';
+  li.style.setProperty('--c', sevColor(isZbx ? item.severity : item.level));
   li.append(el('span', 'dot'));
   li.append(el('span', 'title', item.title));
-  const where = el('span', 'where', item.source === 'zabbix' ? item.hosts.join(', ') : `#${item.number} · ${item.statusLabel}`);
+  const where = el('span', 'where', isZbx ? item.hosts.join(', ') : [item.tag, item.detail].filter(Boolean).join(' · '));
   if (item.source === 'zabbix' && state.zabbix.multi && item.serverName) where.prepend(el('span', 'srv', item.serverName));
   li.append(where);
-  li.append(el('span', 'age', ago(item.source === 'zabbix' ? item.since : item.updated || item.since)));
-  li.addEventListener('click', () => topwatch.openUrl(item.url));
+  li.append(el('span', 'age', ago(isZbx ? item.since : item.updated || item.since)));
+  li.addEventListener('click', () => {
+    if (item.url) topwatch.openUrl(item.url);
+  });
   li.addEventListener('mouseenter', () => {
     const r = li.getBoundingClientRect();
     heroBot.lookAt(r.left + r.width * 0.35, r.top + r.height / 2);
@@ -209,7 +228,8 @@ function row(item) {
 }
 
 function renderPanel(s) {
-  const src = s[tab];
+  const plugin = tab === 'zabbix' ? null : pluginById(s, tab);
+  const src = plugin || s.zabbix;
 
   const errBox = $('error');
   errBox.classList.toggle('hidden', !src.error);
@@ -221,7 +241,7 @@ function renderPanel(s) {
     items = sortedProblems(src.items);
     if (items[0] && !items[0].acknowledged) hero = items.shift();
   } else {
-    items = sortedTickets(src.items);
+    items = sortedPluginItems(src.items);
     hero = items.shift() || null;
   }
 
@@ -239,25 +259,52 @@ function renderPanel(s) {
   const mascot = ui(s).mascot;
   $('calm-bot').classList.toggle('hidden', !mascot);
   $('calm-orb').classList.toggle('hidden', mascot);
-  if (!src.enabled) $('calm-text').textContent = `${tab === 'zabbix' ? 'Zabbix' : 'GLPI'} desativado nas configurações.`;
-  else if (tab === 'zabbix') $('calm-text').textContent = 'Nenhum alerta pendente. Tudo calmo.';
-  else $('calm-text').textContent = 'Nenhum chamado aberto.';
+  if (!src.enabled) $('calm-text').textContent = 'Zabbix desativado nas configurações.';
+  else if (!plugin) $('calm-text').textContent = 'Nenhum alerta pendente. Tudo calmo.';
+  else $('calm-text').textContent = plugin.tab.empty;
+}
+
+// abas dos plugins: recriadas só quando o conjunto de plugins muda
+let tabsKey = '';
+function syncPluginTabs(s) {
+  const list = pluginTabs(s);
+  const key = list.map((p) => `${p.id}:${p.tab.label}`).join('|');
+  if (key === tabsKey) return;
+  tabsKey = key;
+  document.querySelectorAll('.tab[data-plugin]').forEach((b) => b.remove());
+  const nav = $('tabs');
+  for (const p of list) {
+    const b = el('button', 'tab');
+    b.dataset.tab = p.id;
+    b.dataset.plugin = '1';
+    b.setAttribute('role', 'tab');
+    b.append(document.createTextNode(p.tab.label));
+    const c = el('span', 'count', '0');
+    c.dataset.count = p.id;
+    b.append(c);
+    nav.append(b);
+  }
+  if (tab !== 'zabbix' && !pluginById(s, tab)) tab = 'zabbix';
 }
 
 function applyDisplay(s) {
-  const d = ui(s).display;
-  if (d !== 'both' && tab !== d) {
-    tab = d;
-    document.querySelectorAll('.tab').forEach((x) => x.classList.toggle('active', x.dataset.tab === tab));
-  }
-  document.querySelectorAll('.tab').forEach((x) => x.classList.toggle('hidden', !shows(s, x.dataset.tab)));
+  syncPluginTabs(s);
+  const d = display(s);
+  if (d !== 'both') tab = d;
+  document.querySelectorAll('.tab').forEach((x) => {
+    x.classList.toggle('active', x.dataset.tab === tab);
+    x.classList.toggle('hidden', !shows(s, x.dataset.tab));
+  });
 }
 
 function renderHeader(s) {
   const zHot = openProblems(s).some((p) => p.severity >= 4);
   $('count-zabbix').textContent = openProblems(s).length;
   $('count-zabbix').classList.toggle('hot', zHot);
-  $('count-glpi').textContent = s.glpi.items.length;
+  for (const p of pluginTabs(s)) {
+    const c = document.querySelector(`.count[data-count="${p.id}"]`);
+    if (c) c.textContent = p.items.length;
+  }
   $('updated').textContent = s.updatedAt ? (ago(s.updatedAt) === 'agora' ? 'atualizado agora' : `há ${ago(s.updatedAt)}`) : '';
   $('demo-badge').classList.toggle('hidden', !s.demo);
 }
@@ -273,13 +320,12 @@ function render() {
 
 // ---------- eventos ----------
 
-document.querySelectorAll('.tab').forEach((b) =>
-  b.addEventListener('click', () => {
-    tab = b.dataset.tab;
-    document.querySelectorAll('.tab').forEach((x) => x.classList.toggle('active', x === b));
-    render();
-  })
-);
+$('tabs').addEventListener('click', (e) => {
+  const b = e.target.closest('.tab');
+  if (!b) return;
+  tab = b.dataset.tab;
+  render();
+});
 
 $('btn-refresh').addEventListener('click', (e) => {
   const btn = e.currentTarget;

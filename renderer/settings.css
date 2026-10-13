@@ -126,6 +126,7 @@ small {
 input[type='url'],
 input[type='password'],
 input[type='number'],
+.field input[type='text'],
 select {
   width: 100%;
   background: var(--field);
@@ -342,4 +343,38 @@ button:disabled {
 .test button {
   white-space: nowrap;
   flex: none;
+}
+
+/* plugins */
+.muted {
+  color: var(--muted);
+}
+
+.plugins-list {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 2px 0 10px;
+}
+
+.plugins-list li {
+  padding: 3px 9px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  font-size: 12px;
+}
+
+button.link {
+  background: none;
+  border: none;
+  color: var(--muted);
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+  padding: 0 4px;
+}
+
+button.link:hover {
+  color: var(--text);
 }

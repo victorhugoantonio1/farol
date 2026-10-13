@@ -1,24 +1,23 @@
 # TopWatch
 
-Uma barrinha discreta no topo da tela que mostra os **alertas do Zabbix** e os **chamados do GLPI**. Passou o mouse, ela abre. Tem alerta grave, a luz muda de cor e a barra diz qual é o host, sem você precisar abrir aba nenhuma.
+Uma barrinha discreta no topo da tela que mostra os **alertas do Zabbix**. Passou o mouse, ela abre. Tem alerta grave, a luz muda de cor e a barra diz qual é o host, sem você precisar abrir aba nenhuma.
 
-![TopWatch aberto, com um alerta de Desastre em destaque e o Vigia de olho](docs/preview.png)
+![TopWatch aberto, com um alerta de Desastre em destaque, alertas de dois servidores Zabbix e o Vigia de olho](docs/preview.png)
 
-Feito pra quem trabalha em NOC / suporte de infra e vive alternando entre o Zabbix e o GLPI.
+Feito pra quem trabalha em NOC / suporte de infra e não quer ficar com uma aba do Zabbix aberta o dia inteiro. Outras integrações, como sistemas de chamados, entram por [plugins](#plugins).
 
 ## O que ela faz
 
 - **Luz do TopWatch**: verde quando está tudo calmo, amarela/laranja/vermelha conforme a severidade do pior alerta aberto. Em Alta ou Desastre, um feixe gira em volta da luz.
-- **Pílula inteligente**: recolhida, mostra a contagem (`3 alertas · 5 chamados`) ou, se tiver algo grave, direto o que é (`Desastre · srv-app02`).
+- **Pílula inteligente**: recolhida, mostra a contagem (`3 alertas`) ou, se tiver algo grave, direto o que é (`Desastre · srv-app02`).
 - **Card de destaque**: ao abrir, o alerta mais grave vem em cima com **Reconhecer** (ack no Zabbix) e **Abrir**. O resto fica numa lista compacta.
 - **Vários Zabbix ao mesmo tempo**: cadastre quantos servidores quiser (ex.: um 6.0 com clientes antigos e um 7.0). Os alertas aparecem juntos, cada um com a etiqueta do servidor de onde veio, e o **Reconhecer** vai pro servidor certo. Se um cair, os outros continuam aparecendo.
-- **Chamados do GLPI**: os não solucionados, opcionalmente só os atribuídos a você, ordenados por prioridade.
 - **Notificação do Windows** para problemas novos de severidade Alta ou Desastre.
 - **Vigia**: um robozinho que segue o mouse, olha pra linha sob o cursor, leva susto com alerta novo, fica vermelho no Desastre, acena quando você reconhece e desliga quando está tudo calmo. Clique nele pra cutucar (três vezes rápido e ele dá glitch). Dá pra desligar nas configurações.
 
   ![O Vigia reagindo: olha a lista, glitch ao ser cutucado, alarme com um Desastre, aceno ao reconhecer e desliga quando fica tudo calmo](docs/vigia.gif)
 
-- **O que mostrar**: alertas e chamados, só alertas ou só chamados.
+- **Plugins**: cada integração instalada ganha a própria aba na barra e a própria seção nas configurações.
 - **Modo demo** com dados de exemplo, pra ver funcionando sem configurar nada.
 - `Ctrl` + `Alt` + `F` fixa a barra aberta; o ícone na bandeja esconde/mostra.
 
@@ -51,21 +50,25 @@ A versão é detectada sozinha: até o 6.2 o token vai no corpo da requisição,
 
 Quem já usava um Zabbix só não precisa refazer nada: a configuração antiga vira o primeiro servidor da lista.
 
-**GLPI** (API REST `apirest.php`, GLPI 9.5/10/11)
+Servidor interno com certificado autoassinado? Marque "aceitar certificado autoassinado" naquele servidor. Use **Testar conexão** antes de salvar.
 
-1. Ative a API em *Configurar → Geral → API* e confira se há um cliente de API liberado pro seu IP.
-2. No seu perfil: *Chaves de acesso remoto → Token da API*.
-3. Se o cliente de API exigir, preencha também o **App-Token**.
-4. Se o token for de um usuário de serviço (um usuário "api", por exemplo), preencha **Seu login no GLPI**. Assim o filtro "só os meus" mostra os chamados atribuídos a você, e não ao dono do token.
+## Plugins
 
-Servidor interno com certificado autoassinado? Marque "aceitar certificado autoassinado" naquela integração. Use **Testar conexão** antes de salvar.
+Plugins adicionam integrações com outros sistemas. Cada plugin ganha uma aba na barra e uma seção nas configurações.
+
+**Instalar:** em Configurações → Plugins → **Instalar plugin…**, escolha a pasta do plugin (a que tem o `index.js`). Ele é copiado pra pasta de plugins do app e já aparece, sem reiniciar. **Abrir pasta de plugins** mostra onde eles ficam.
+
+**Criar um plugin:** é uma pasta com um `index.js` que declara nome, aba e campos de configuração, e devolve os itens a mostrar. O formato completo está comentado no topo de [`src/plugins.js`](src/plugins.js). Pra desenvolver sem instalar, aponte a variável `TOPWATCH_PLUGINS` pra pasta onde estão os seus plugins.
+
+**Integração com GLPI:** está disponível na edição para equipes, como plugin. Veja [Licença](#licença).
 
 ## Segurança
 
 - Tokens ficam criptografados com o `safeStorage` do Electron (DPAPI do Windows) e nunca voltam em texto puro pra tela.
 - A interface roda isolada (`contextIsolation`, `sandbox`, sem Node), com CSP, e todo texto vindo das APIs entra como texto, nunca como HTML.
-- Os botões só abrem links que vieram dos próprios dados do Zabbix/GLPI.
+- Os botões só abrem links `http`/`https` que vieram dos próprios dados do Zabbix ou dos plugins.
 - O app só conversa com os servidores que você configurar. Sem telemetria.
+- Plugins rodam no processo principal, com acesso ao computador. Instale só plugins de quem você confia.
 
 ## Como funciona
 
@@ -73,17 +76,17 @@ Servidor interno com certificado autoassinado? Marque "aceitar certificado autoa
 - **Coleta**: o processo principal consulta as APIs a cada N segundos (sem CORS, com suporte a certificado autoassinado) e manda o estado pra interface via IPC.
 - **Zabbix**: `apiinfo.version` pra descobrir como autenticar, `problem.get` + `trigger.get` (pra pegar os hosts) em todos os servidores em paralelo, e `event.acknowledge` no botão Reconhecer.
 - **Carga**: por padrão, uma rodada a cada 60 s (mínimo 30 s). Em cada rodada vai **um `problem.get` por servidor** (até 50 problemas, só campos básicos). O `trigger.get` só sai quando aparece um trigger que o app ainda não conhece, porque os hosts ficam em cache. É mais leve que deixar um dashboard do Zabbix aberto.
-- **GLPI**: `initSession` com user_token, depois ativa todas as entidades com subentidades (e troca pra um perfil técnico se o padrão for de autoatendimento), `search/Ticket` filtrando status "não solucionado", sessão reaproveitada e refeita se expirar.
+- **Plugins**: carregados da pasta `plugins` dos dados do app. Cada um é consultado em paralelo com o Zabbix; plugin com erro mostra o erro na aba dele e não derruba o resto.
 
 ```
 main.js            processo principal: janelas, bandeja, coleta, IPC
 preload.js         ponte mínima entre interface e processo principal
 src/zabbix.js      cliente JSON-RPC do Zabbix (vários servidores, 5.4 a 7.x)
-src/glpi.js        cliente REST do GLPI
+src/plugins.js     carregador de plugins (formato descrito no topo do arquivo)
 src/config.js      configurações + tokens criptografados
 src/demo.js        dados de exemplo
 renderer/          interface da ilha, o Vigia (bot.js) e a tela de configurações
-test/              testes dos clientes contra servidores falsos
+test/              testes do cliente Zabbix, das configurações e dos plugins
 lab/zabbix/        Zabbix local no Docker + script que simula problemas pela API
 ```
 
@@ -95,7 +98,6 @@ Quer testar contra um Zabbix de verdade sem mexer em produção? O [laboratório
 
 - Feito e pensado para **Windows**. No Linux a janela não consegue deixar o mouse passar, então o retângulo da ilha fica clicável mesmo recolhido.
 - Jogos em tela cheia exclusiva ficam por cima da barra (o que é bom). Em tela cheia "sem bordas", esconda pela bandeja ou pelo atalho.
-- O filtro "só chamados atribuídos a mim" pega os chamados em que você é o **técnico**. Chamado atribuído só ao seu grupo não entra; nesse caso, desmarque a opção.
 
 ## Licença
 

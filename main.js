@@ -12,12 +12,14 @@ const {
   Notification,
   safeStorage,
   globalShortcut,
+  dialog,
 } = require('electron');
 const path = require('node:path');
 
 const { createStore } = require('./src/config');
 const zabbix = require('./src/zabbix');
-const { createGlpiClient } = require('./src/glpi');
+const { request } = require('./src/http');
+const pluginKit = require('./src/plugins');
 const demo = require('./src/demo');
 
 // Tamanho da janela da ilha. A janela é transparente e deixa o mouse passar,
@@ -30,7 +32,9 @@ let island = null;
 let settingsWin = null;
 let tray = null;
 let store = null;
-let glpi = null;
+// plugins carregados: [{ mod, dir, info, instance }]
+let plugins = [];
+let pluginErrors = [];
 let pollTimer = null;
 let polling = false;
 let hidden = false;
@@ -43,7 +47,8 @@ let state = {
   demo: true,
   updatedAt: null,
   zabbix: { enabled: true, items: [], error: null, multi: false },
-  glpi: { enabled: true, items: [], error: null },
+  // uma entrada por plugin instalado: { id, name, tab, enabled, items, error }
+  plugins: [],
 };
 
 if (!app.requestSingleInstanceLock()) {
@@ -51,6 +56,54 @@ if (!app.requestSingleInstanceLock()) {
 }
 
 app.setAppUserModelId('io.github.victorhugoantonio1.topwatch'); // notificações no Windows
+
+// ---------- plugins ----------
+
+function pluginsRoot() {
+  return path.join(app.getPath('userData'), 'plugins');
+}
+
+// TOPWATCH_PLUGINS: pastas extras (separadas por ; ou :) pra desenvolver plugins sem instalar
+function pluginRoots() {
+  const extra = (process.env.TOPWATCH_PLUGINS || '').split(path.delimiter).filter(Boolean);
+  return [pluginsRoot(), ...extra];
+}
+
+function loadAllPlugins() {
+  for (const p of plugins) closePlugin(p);
+  const res = pluginKit.loadPlugins(pluginRoots(), { log: (m) => console.warn(`[TopWatch] ${m}`) });
+  pluginErrors = res.errors;
+  plugins = res.plugins.map((p) => {
+    let instance = null;
+    try {
+      instance = p.mod.create({ request, version: app.getVersion() });
+    } catch (err) {
+      pluginErrors.push({ dir: p.dir, message: `create() falhou: ${err.message}` });
+    }
+    return { ...p, instance };
+  }).filter((p) => p.instance);
+  if (store) store.setPlugins(plugins.map((p) => p.mod));
+}
+
+function closePlugin(p) {
+  try {
+    if (p.instance && typeof p.instance.close === 'function') p.instance.close(store ? store.get().plugins[p.mod.id] : {});
+  } catch {
+    // saindo, não importa
+  }
+}
+
+function pluginState(p, cfg, extra) {
+  return {
+    id: p.info.id,
+    name: p.info.name,
+    tab: p.info.tab,
+    enabled: !!(cfg.plugins[p.info.id] && cfg.plugins[p.info.id].enabled),
+    items: [],
+    error: null,
+    ...extra,
+  };
+}
 
 // ---------- janelas ----------
 
@@ -162,7 +215,7 @@ function snapshotForUi() {
 
 function broadcast() {
   allowedUrls.clear();
-  for (const it of [...state.zabbix.items, ...state.glpi.items]) if (it.url) allowedUrls.add(it.url);
+  for (const it of [...state.zabbix.items, ...state.plugins.flatMap((p) => p.items)]) if (it.url) allowedUrls.add(it.url);
   if (island && !island.isDestroyed()) island.webContents.send('state', snapshotForUi());
   updateTrayTooltip();
 }
@@ -197,17 +250,30 @@ async function poll() {
         demo: true,
         updatedAt: Date.now(),
         zabbix: { enabled: true, items: snap.problems, error: null, multi: true },
-        glpi: { enabled: true, items: snap.tickets, error: null },
+        // no demo, plugin com demo() aparece com os dados de exemplo dele
+        plugins: plugins
+          .filter((p) => typeof p.instance.demo === 'function')
+          .map((p) => {
+            let items = [];
+            try {
+              items = (p.instance.demo() || []).map((it, i) => pluginKit.normalizeItem(p.mod, it, i));
+            } catch {
+              // demo quebrado: aba vazia
+            }
+            return pluginState(p, cfg, { enabled: true, items });
+          }),
       };
     } else {
-      const [z, g] = await Promise.allSettled([
+      const active = plugins.filter((p) => cfg.plugins[p.mod.id] && cfg.plugins[p.mod.id].enabled);
+      const [z, ...pr] = await Promise.allSettled([
         cfg.zabbix.enabled ? zabbix.fetchAll(cfg.zabbix) : Promise.resolve({ items: [], errors: [], servers: 0 }),
-        cfg.glpi.enabled ? glpi.fetchTickets(cfg.glpi) : Promise.resolve([]),
+        ...active.map((p) => p.instance.fetch(cfg.plugins[p.mod.id])),
       ]);
       // servidor que falhou nesta rodada mantém os alertas da rodada anterior (sem piscar a lista)
       const zr = z.status === 'fulfilled' ? z.value : { items: [], errors: [{ serverId: '*', message: z.reason.message }], servers: 0 };
       const failed = new Set(zr.errors.map((er) => er.serverId));
       const kept = state.zabbix.items.filter((it) => failed.has(it.serverId) || failed.has('*'));
+      const previous = new Map(state.plugins.map((p) => [p.id, p.items]));
       state = {
         demo: false,
         updatedAt: Date.now(),
@@ -217,11 +283,20 @@ async function poll() {
           error: zr.errors.length ? zr.errors.map((er) => er.message).join(' · ') : null,
           multi: zabbix.activeServers(cfg.zabbix).length > 1,
         },
-        glpi: {
-          enabled: cfg.glpi.enabled,
-          items: g.status === 'fulfilled' ? g.value : state.glpi.items,
-          error: g.status === 'rejected' ? g.reason.message : null,
-        },
+        plugins: plugins.map((p) => {
+          const i = active.indexOf(p);
+          if (i < 0) return pluginState(p, cfg);
+          const r = pr[i];
+          if (r.status === 'fulfilled') {
+            const items = (Array.isArray(r.value) ? r.value : []).slice(0, 200).map((it, k) => pluginKit.normalizeItem(p.mod, it, k));
+            return pluginState(p, cfg, { items });
+          }
+          const msg = (r.reason && r.reason.message) || String(r.reason);
+          return pluginState(p, cfg, {
+            items: previous.get(p.info.id) || [],
+            error: msg.toLowerCase().startsWith(p.info.name.toLowerCase()) ? msg : `${p.info.name}: ${msg}`,
+          });
+        }),
       };
     }
     notifyNewProblems(state.zabbix.items);
@@ -250,8 +325,12 @@ function trayIcon() {
 function updateTrayTooltip() {
   if (!tray) return;
   const z = state.zabbix.items.length;
-  const g = state.glpi.items.length;
-  tray.setToolTip(`TopWatch – ${z} alerta${z === 1 ? '' : 's'}, ${g} chamado${g === 1 ? '' : 's'}${state.demo ? ' (demo)' : ''}`);
+  const parts = [`${z} alerta${z === 1 ? '' : 's'}`];
+  for (const p of state.plugins.filter((x) => x.enabled)) {
+    const n = p.items.length;
+    parts.push(`${n} ${n === 1 ? p.tab.singular : p.tab.plural}`);
+  }
+  tray.setToolTip(`TopWatch – ${parts.join(', ')}${state.demo ? ' (demo)' : ''}`);
 }
 
 function buildTrayMenu() {
@@ -341,7 +420,41 @@ ipcMain.handle('zabbix:ack', async (e, itemId) => {
 
 ipcMain.handle('settings:get', (e) => {
   if (!fromWindow(e, settingsWin)) return null;
-  return { ...store.getMasked(), forcedDemo: FORCE_DEMO };
+  return {
+    ...store.getMasked(),
+    forcedDemo: FORCE_DEMO,
+    plugins: plugins.map((p) => p.info),
+    pluginErrors: pluginErrors.map((er) => ({ folder: path.basename(er.dir), message: er.message })),
+  };
+});
+
+// "Instalar plugin…": escolhe a pasta do plugin, copia pra pasta de plugins e recarrega
+ipcMain.handle('settings:install-plugin', async (e) => {
+  if (!fromWindow(e, settingsWin)) return { ok: false, message: 'Origem inválida' };
+  const pick = await dialog.showOpenDialog(settingsWin, {
+    title: 'Escolha a pasta do plugin (a que tem o index.js)',
+    properties: ['openDirectory'],
+  });
+  if (pick.canceled || !pick.filePaths[0]) return { ok: false, canceled: true };
+  try {
+    const id = pluginKit.installPlugin(pick.filePaths[0], pluginsRoot());
+    loadAllPlugins();
+    restartPolling();
+    const p = plugins.find((x) => x.mod.id === id);
+    if (!p) {
+      const er = pluginErrors.find((x) => path.basename(x.dir) === id);
+      throw new Error(er ? er.message : 'o plugin não carregou');
+    }
+    return { ok: true, message: `Plugin ${p.info.name} ${p.info.version} instalado.` };
+  } catch (err) {
+    return { ok: false, message: err.message };
+  }
+});
+
+ipcMain.on('settings:open-plugins-folder', (e) => {
+  if (!fromWindow(e, settingsWin)) return;
+  require('node:fs').mkdirSync(pluginsRoot(), { recursive: true });
+  shell.openPath(pluginsRoot());
 });
 
 ipcMain.handle('settings:save', (e, changes) => {
@@ -357,17 +470,21 @@ ipcMain.handle('settings:save', (e, changes) => {
   return { ok: true };
 });
 
-ipcMain.handle('settings:test', async (e, which, changes, serverId) => {
+// which = 'zabbix' (id = servidor) ou 'plugin' (id = plugin)
+ipcMain.handle('settings:test', async (e, which, changes, id) => {
   if (!fromWindow(e, settingsWin)) return { ok: false, message: 'Origem inválida' };
   const cfg = store.withChanges(changes); // testa o que está na tela, sem salvar
   try {
     let message;
     if (which === 'zabbix') {
-      const server = cfg.zabbix.servers.find((s) => s.id === serverId);
+      const server = cfg.zabbix.servers.find((s) => s.id === id);
       if (!server) throw new Error('Servidor não encontrado.');
       message = await zabbix.test(server, { minSeverity: cfg.zabbix.minSeverity });
     } else {
-      message = await createGlpiClient().test(cfg.glpi);
+      const p = plugins.find((x) => x.mod.id === id);
+      if (!p) throw new Error('Plugin não encontrado.');
+      if (typeof p.instance.test !== 'function') throw new Error('Esse plugin não tem teste de conexão.');
+      message = String(await p.instance.test(cfg.plugins[id]));
     }
     return { ok: true, message };
   } catch (err) {
@@ -381,7 +498,7 @@ app.on('second-instance', () => setHidden(false));
 
 app.whenReady().then(() => {
   store = createStore({ dir: app.getPath('userData'), safeStorage });
-  glpi = createGlpiClient();
+  loadAllPlugins();
 
   createIsland();
   createTray();
@@ -399,7 +516,7 @@ app.whenReady().then(() => {
   restartPolling();
 
   const cfg = store.get();
-  if (!FORCE_DEMO && cfg.demo && !cfg.zabbix.servers.length && !cfg.glpi.url) {
+  if (!FORCE_DEMO && cfg.demo && !cfg.zabbix.servers.length) {
     // primeira vez: mostra a ilha em demo e abre as configurações
     setTimeout(openSettings, 800);
   }
@@ -410,5 +527,5 @@ app.on('window-all-closed', (e) => e.preventDefault()); // vive na bandeja
 app.on('will-quit', () => {
   globalShortcut.unregisterAll();
   clearInterval(pollTimer);
-  if (glpi && store) glpi.close(store.get().glpi);
+  for (const p of plugins) closePlugin(p);
 });

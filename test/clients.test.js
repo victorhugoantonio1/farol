@@ -1,5 +1,5 @@
 'use strict';
-// Testa os clientes contra servidores falsos que imitam o Zabbix e o GLPI.
+// Testa o cliente do Zabbix contra servidores falsos, as configurações e o carregador de plugins.
 // Rode com: npm test
 
 const test = require('node:test');
@@ -11,8 +11,24 @@ const path = require('node:path');
 
 const zabbix = require('../src/zabbix');
 const { migrate } = require('../src/config');
-const { createGlpiClient } = require('../src/glpi');
 const { createStore } = require('../src/config');
+const pluginKit = require('../src/plugins');
+
+// plugin de mentira pros testes de configuração
+const FAKE_PLUGIN = {
+  id: 'tickets',
+  fields: [
+    { key: 'url', type: 'url' },
+    { key: 'token', type: 'secret' },
+    { key: 'onlyMine', type: 'checkbox', default: true },
+  ],
+};
+
+const fakeSafe = {
+  isEncryptionAvailable: () => true,
+  encryptString: (s) => Buffer.from(`enc:${s}`),
+  decryptString: (b) => b.toString().replace(/^enc:/, ''),
+};
 
 function serve(handler) {
   return new Promise((resolve) => {
@@ -105,74 +121,10 @@ test('Zabbix: erro da API vira mensagem legível', async () => {
   }
 });
 
-test('GLPI: abre sessão, busca chamados e refaz login quando a sessão expira', async () => {
-  let sessions = 0;
-  let searches = 0;
-  let lastQuery;
-  const { server, url } = await serve((req, res) => {
-    const u = new URL(req.url, 'http://x');
-    if (u.pathname === '/glpi/apirest.php/initSession') {
-      assert.equal(req.headers.authorization, 'user_token tok');
-      assert.equal(req.headers['app-token'], 'app');
-      sessions++;
-      return json(res, 200, { session_token: `s${sessions}` });
-    }
-    if (u.pathname === '/glpi/apirest.php/search/Ticket') {
-      searches++;
-      lastQuery = u.searchParams;
-      if (req.headers['session-token'] === 's1' && searches === 2) {
-        return json(res, 401, ['ERROR_SESSION_TOKEN_INVALID', 'sessão inválida']);
-      }
-      return json(res, 206, {
-        totalcount: 1,
-        data: [{ 1: 'VPN não conecta', 2: 4821, 3: 4, 12: 2, 15: '2026-10-11 09:00:00', 19: '2026-10-11 10:30:00' }],
-      });
-    }
-    json(res, 404, ['ERROR_RESOURCE_NOT_FOUND_NOR_COMMONDBTM', '']);
-  });
-
-  try {
-    const glpi = createGlpiClient();
-    const cfg = { url: `${url}/glpi/`, userToken: 'tok', appToken: 'app', onlyMine: true };
-
-    const first = await glpi.fetchTickets(cfg);
-    assert.equal(first.length, 1);
-    assert.equal(first[0].number, 4821);
-    assert.equal(first[0].statusLabel, 'Em atendimento');
-    assert.equal(first[0].priorityLabel, 'Alta');
-    assert.equal(first[0].url, `${url}/glpi/front/ticket.form.php?id=4821`);
-    assert.equal(lastQuery.get('criteria[0][value]'), 'notold');
-    assert.equal(lastQuery.get('criteria[1][value]'), 'myself');
-
-    // segunda busca: servidor diz 401, cliente faz login de novo e tenta outra vez
-    const second = await glpi.fetchTickets(cfg);
-    assert.equal(second.length, 1);
-    assert.equal(sessions, 2);
-  } finally {
-    server.close();
-  }
-});
-
-test('GLPI: erro de login mostra o motivo que o GLPI mandou', async () => {
-  const { server, url } = await serve((req, res) => {
-    json(res, 400, ['ERROR_GLPI_LOGIN_USER_TOKEN', 'parâmetro user_token parece estar incorreto']);
-  });
-  try {
-    await assert.rejects(createGlpiClient().fetchTickets({ url, userToken: 'x' }), /ERROR_GLPI_LOGIN_USER_TOKEN/);
-  } finally {
-    server.close();
-  }
-});
-
 test('Config: segredos são criptografados no disco e não voltam pra tela', () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'topwatch-'));
   // safeStorage falso (no app de verdade é o DPAPI do Windows)
-  const fakeSafe = {
-    isEncryptionAvailable: () => true,
-    encryptString: (s) => Buffer.from(`enc:${s}`),
-    decryptString: (b) => b.toString().replace(/^enc:/, ''),
-  };
-  const store = createStore({ dir, safeStorage: fakeSafe });
+  const store = createStore({ dir, safeStorage: fakeSafe, plugins: [FAKE_PLUGIN] });
   store.save({
     zabbix: {
       servers: [
@@ -180,25 +132,27 @@ test('Config: segredos são criptografados no disco e não voltam pra tela', () 
         { id: 'z6', name: 'Zabbix 6', url: 'https://z6', token: 'segredo6', auth: 'body' },
       ],
     },
-    glpi: { userToken: 'gtok' },
+    plugins: { tickets: { enabled: true, url: 'https://t', token: 'ptok' } },
   });
 
   const onDisk = fs.readFileSync(path.join(dir, 'config.json'), 'utf8');
-  assert.ok(!onDisk.includes('"segredo7"') && !onDisk.includes('"segredo6"') && !onDisk.includes('"gtok"'));
+  assert.ok(!onDisk.includes('"segredo7"') && !onDisk.includes('"segredo6"') && !onDisk.includes('"ptok"'));
 
   const masked = store.getMasked();
   assert.equal(masked.config.zabbix.servers[0].token, '');
   assert.equal(masked.hasSecret['zabbix.servers.z7.token'], true);
-  assert.equal(masked.hasSecret['glpi.userToken'], true);
+  assert.equal(masked.hasSecret['plugins.tickets.token'], true);
+  assert.equal(masked.config.plugins.tickets.token, '');
 
   // salvar com o token vazio mantém o token daquele servidor; remover um servidor apaga o dele
   store.save({ zabbix: { servers: [{ id: 'z7', name: 'Zabbix 7', url: 'https://z7-novo', token: '' }] } });
-  const reopened = createStore({ dir, safeStorage: fakeSafe });
+  const reopened = createStore({ dir, safeStorage: fakeSafe, plugins: [FAKE_PLUGIN] });
   const servers = reopened.get().zabbix.servers;
   assert.equal(servers.length, 1);
   assert.equal(servers[0].token, 'segredo7');
   assert.equal(servers[0].url, 'https://z7-novo');
-  assert.equal(reopened.get().glpi.userToken, 'gtok');
+  assert.equal(reopened.get().plugins.tickets.token, 'ptok');
+  assert.equal(reopened.get().plugins.tickets.onlyMine, true); // padrão do campo
 });
 
 test('Zabbix: Reconhecer chama event.acknowledge com action 2', async () => {
@@ -383,111 +337,93 @@ test('Zabbix: hosts dos triggers ficam em cache (trigger.get só pra trigger nov
   }
 });
 
-test('GLPI: ativa todas as entidades, sai do perfil de autoatendimento e filtra pelo id do técnico', async () => {
-  let active = { profile: 1, entities: 'padrão' };
-  const profiles = { 1: { name: 'Self-Service', interface: 'helpdesk' }, 4: { name: 'Técnico', interface: 'central' } };
-  let lastQuery;
-  const calls = [];
-  const { server, url } = await serve((req, res, raw) => {
-    const u = new URL(req.url, 'http://x');
-    const ep = u.pathname.replace('/apirest.php/', '');
-    calls.push(ep);
-    if (ep === 'initSession') return json(res, 200, { session_token: 's1' });
-    if (ep === 'changeActiveEntities') {
-      const b = JSON.parse(raw);
-      active.entities = b.entities_id === 'all' && b.is_recursive ? 'todas' : 'padrão';
-      return json(res, 200, true);
-    }
-    if (ep === 'changeActiveProfile') {
-      active = { profile: JSON.parse(raw).profiles_id, entities: 'padrão' };
-      return json(res, 200, true);
-    }
-    if (ep === 'getFullSession') {
-      return json(res, 200, {
-        session: {
-          glpiID: 42,
-          glpiactiveprofile: { id: active.profile, ...profiles[active.profile] },
-          glpiprofiles: { 1: { name: 'Self-Service' }, 4: { name: 'Técnico' } },
-          glpiactiveentities: active.entities === 'todas' ? { 0: 0, 3: 3, 7: 7 } : { 0: 0 },
-        },
-      });
-    }
-    if (ep === 'search/Ticket') {
-      lastQuery = u.searchParams;
-      // só aparece com perfil técnico, todas as entidades e filtro pelo id 42
-      const ok = active.profile === 4 && active.entities === 'todas' && lastQuery.get('criteria[1][value]') === '42';
-      return json(res, 200, { totalcount: ok ? 1 : 0, data: ok ? [{ 1: 'teste', 2: 24234, 3: 4, 12: 2, 15: '2026-10-13 11:55:00', 19: '2026-10-13 11:55:00' }] : [] });
-    }
-    json(res, 404, ['ERROR_RESOURCE_NOT_FOUND_NOR_COMMONDBTM', '']);
-  });
-  try {
-    const glpi = createGlpiClient();
-    const msg = await glpi.test({ url, userToken: 'tok', onlyMine: true });
-    assert.match(msg, /perfil Técnico, 3 entidades/);
-    assert.match(msg, /1\+ chamados/);
-    const items = await glpi.fetchTickets({ url, userToken: 'tok', onlyMine: true });
-    assert.equal(items[0].number, 24234);
-  } finally {
-    server.close();
-  }
+
+test('Config: a seção "glpi" antiga vira a config do plugin glpi, com o token preservado', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'topwatch-'));
+  const old = {
+    zabbix: { enabled: true, servers: [] },
+    glpi: { enabled: true, url: 'https://glpi', userToken: { enc: Buffer.from('enc:gtok').toString('base64') }, onlyMine: false },
+  };
+  fs.writeFileSync(path.join(dir, 'config.json'), JSON.stringify(old));
+  const glpiDef = { id: 'glpi', fields: [{ key: 'url', type: 'url' }, { key: 'userToken', type: 'secret' }, { key: 'onlyMine', type: 'checkbox', default: true }] };
+
+  // sem o plugin instalado: a config fica guardada (criptografada) e não aparece na tela
+  const without = createStore({ dir, safeStorage: fakeSafe });
+  assert.equal(without.getMasked().config.plugins.glpi, undefined);
+  without.save({ pollSeconds: 90 });
+  const disk = JSON.parse(fs.readFileSync(path.join(dir, 'config.json'), 'utf8'));
+  assert.equal(disk.glpi, undefined);
+  assert.ok(disk.plugins.glpi.userToken.enc, 'token continua criptografado');
+
+  // plugin instalado depois: lê a config migrada
+  without.setPlugins([glpiDef]);
+  const cfg = without.get().plugins.glpi;
+  assert.equal(cfg.enabled, true);
+  assert.equal(cfg.url, 'https://glpi');
+  assert.equal(cfg.userToken, 'gtok');
+  assert.equal(cfg.onlyMine, false);
 });
 
-test('GLPI antigo sem getFullSession continua funcionando com "myself"', async () => {
-  let lastQuery;
-  const { server, url } = await serve((req, res) => {
-    const u = new URL(req.url, 'http://x');
-    if (u.pathname.endsWith('/initSession')) return json(res, 200, { session_token: 's1' });
-    if (u.pathname.endsWith('/search/Ticket')) {
-      lastQuery = u.searchParams;
-      return json(res, 200, { totalcount: 0, data: [] });
-    }
-    json(res, 400, ['ERROR_RESOURCE_NOT_FOUND_NOR_COMMONDBTM', '']);
-  });
-  try {
-    const items = await createGlpiClient().fetchTickets({ url, userToken: 'tok', onlyMine: true });
-    assert.equal(items.length, 0);
-    assert.equal(lastQuery.get('criteria[1][value]'), 'myself');
-  } finally {
-    server.close();
-  }
+test('Config: exibição escolhendo um plugin que não existe volta pra "tudo"', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'topwatch-'));
+  const store = createStore({ dir, safeStorage: fakeSafe, plugins: [FAKE_PLUGIN] });
+  assert.equal(store.save({ ui: { display: 'tickets' } }).ui.display, 'tickets');
+  assert.equal(store.save({ ui: { display: 'glpi' } }).ui.display, 'both');
 });
 
-test('GLPI: token de usuário de serviço + login do técnico filtra pelos chamados do técnico', async () => {
-  let lastQuery;
-  let userSearch;
-  const { server, url } = await serve((req, res) => {
-    const u = new URL(req.url, 'http://x');
-    const ep = u.pathname.replace('/apirest.php/', '');
-    if (ep === 'initSession') return json(res, 200, { session_token: 's1' });
-    if (ep === 'changeActiveEntities') return json(res, 200, true);
-    if (ep === 'getFullSession') {
-      return json(res, 200, { session: { glpiID: 9, glpiname: 'api', glpiactiveprofile: { id: 8, name: 'API', interface: 'central' }, glpiactiveentities: { 0: 0, 1: 1 } } });
-    }
-    if (ep === 'search/User') {
-      userSearch = u.searchParams;
-      const found = u.searchParams.get('criteria[0][value]') === '^victor.antonio$';
-      return json(res, 200, { totalcount: found ? 1 : 0, data: found ? [{ 2: 57 }] : [] });
-    }
-    if (ep === 'search/Ticket') {
-      lastQuery = u.searchParams;
-      const ok = lastQuery.get('criteria[1][value]') === '57';
-      return json(res, 200, { totalcount: ok ? 1 : 0, data: ok ? [{ 1: 'teste', 2: 24234, 3: 4, 12: 2 }] : [] });
-    }
-    json(res, 404, ['ERROR_RESOURCE_NOT_FOUND_NOR_COMMONDBTM', '']);
-  });
-  try {
-    const glpi = createGlpiClient();
-    // sem o login: avisa de quem é o token
-    const msg = await glpi.test({ url, userToken: 'tok', onlyMine: true });
-    assert.match(msg, /como api, perfil API/);
-    assert.match(msg, /dono deste token/);
-    // com o login: acha o chamado
-    const items = await glpi.fetchTickets({ url, userToken: 'tok', onlyMine: true, technician: 'victor.antonio' });
-    assert.equal(items[0].number, 24234);
-    assert.equal(userSearch.get('criteria[0][field]'), '1');
-    // login errado: erro claro
-    await assert.rejects(glpi.fetchTickets({ url, userToken: 'tok', onlyMine: true, technician: 'ninguem' }), /"ninguem" não encontrado/);
-  } finally {
-    server.close();
-  }
+function writePlugin(root, folder, source) {
+  const dir = path.join(root, folder);
+  fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(path.join(dir, 'index.js'), source);
+  return dir;
+}
+
+const GOOD_PLUGIN = `module.exports = {
+  apiVersion: 1, id: 'exemplo', name: 'Exemplo', version: '1.2.3',
+  tab: { label: 'Tarefas', singular: 'tarefa', plural: 'tarefas' },
+  fields: [{ key: 'url', type: 'url', label: 'URL' }, { key: 'token', type: 'secret', label: 'Token' }],
+  create(ctx) { return { async fetch() { return []; }, async test() { return typeof ctx.request; } }; },
+};`;
+
+test('Plugins: carrega os válidos e ignora os quebrados sem derrubar o app', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'topwatch-plugins-'));
+  writePlugin(root, 'exemplo', GOOD_PLUGIN);
+  writePlugin(root, 'sem-create', `module.exports = { apiVersion: 1, id: 'x', name: 'X', tab: { label: 'X' }, fields: [] };`);
+  writePlugin(root, 'versao-errada', `module.exports = { apiVersion: 99, id: 'y', name: 'Y', tab: { label: 'Y' }, fields: [], create() {} };`);
+  writePlugin(root, 'quebrado', `throw new Error('bug no plugin');`);
+  writePlugin(root, 'id-reservado', `module.exports = { apiVersion: 1, id: 'zabbix', name: 'Z', tab: { label: 'Z' }, fields: [], create() {} };`);
+  fs.mkdirSync(path.join(root, 'pasta-vazia'));
+
+  const { plugins, errors } = pluginKit.loadPlugins([root, path.join(root, 'nao-existe')]);
+  assert.deepEqual(plugins.map((p) => p.info.id), ['exemplo']);
+  assert.equal(plugins[0].info.tab.singular, 'tarefa');
+  assert.equal(plugins[0].info.tab.openLabel, 'Abrir'); // padrão
+  assert.equal(typeof plugins[0].info.create, 'undefined'); // a tela não recebe funções
+  assert.equal(errors.length, 4);
+  assert.ok(errors.some((e) => /sem create/.test(e.message)));
+  assert.ok(errors.some((e) => /apiVersion 99/.test(e.message)));
+  assert.ok(errors.some((e) => /bug no plugin/.test(e.message)));
+  assert.ok(errors.some((e) => /id inválido/.test(e.message)));
+});
+
+test('Plugins: instalar copia a pasta pra pasta de plugins pelo id', () => {
+  const src = fs.mkdtempSync(path.join(os.tmpdir(), 'topwatch-src-'));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'topwatch-root-'));
+  const dir = writePlugin(src, 'baixado-v1', GOOD_PLUGIN);
+  fs.writeFileSync(path.join(dir, 'extra.js'), '// arquivo do plugin');
+  assert.equal(pluginKit.installPlugin(dir, root), 'exemplo');
+  assert.ok(fs.existsSync(path.join(root, 'exemplo', 'index.js')));
+  assert.ok(fs.existsSync(path.join(root, 'exemplo', 'extra.js')));
+  assert.throws(() => pluginKit.installPlugin(src, root), /não tem um index\.js/);
+});
+
+test('Plugins: item do plugin é limpo antes de chegar na barra', () => {
+  const mod = { id: 'exemplo' };
+  const it = pluginKit.normalizeItem(mod, { id: 7, title: 'Teste', level: 9, url: 'javascript:alert(1)', since: 'ontem', extra: { x: 1 } }, 0);
+  assert.equal(it.id, 'exemplo-7');
+  assert.equal(it.source, 'exemplo');
+  assert.equal(it.level, 5); // limitado a 0–5
+  assert.equal(it.url, null); // só http/https
+  assert.equal(it.since, null);
+  assert.equal(it.extra, undefined);
 });
