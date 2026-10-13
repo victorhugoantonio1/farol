@@ -1,14 +1,14 @@
-# Farol
+# TopWatch
 
 Uma barrinha discreta no topo da tela que mostra os **alertas do Zabbix** e os **chamados do GLPI**. Passou o mouse, ela abre. Tem alerta grave, a luz muda de cor e a barra diz qual é o host, sem você precisar abrir aba nenhuma.
 
-![Farol aberto, com um alerta de Desastre em destaque e o Vigia de olho](docs/preview.png)
+![TopWatch aberto, com um alerta de Desastre em destaque e o Vigia de olho](docs/preview.png)
 
 Feito pra quem trabalha em NOC / suporte de infra e vive alternando entre o Zabbix e o GLPI.
 
 ## O que ela faz
 
-- **Luz do farol**: verde quando está tudo calmo, amarela/laranja/vermelha conforme a severidade do pior alerta aberto. Em Alta ou Desastre, um feixe gira em volta da luz.
+- **Luz do TopWatch**: verde quando está tudo calmo, amarela/laranja/vermelha conforme a severidade do pior alerta aberto. Em Alta ou Desastre, um feixe gira em volta da luz.
 - **Pílula inteligente**: recolhida, mostra a contagem (`3 alertas · 5 chamados`) ou, se tiver algo grave, direto o que é (`Desastre · srv-app02`).
 - **Card de destaque**: ao abrir, o alerta mais grave vem em cima com **Reconhecer** (ack no Zabbix) e **Abrir**. O resto fica numa lista compacta.
 - **Chamados do GLPI**: os não solucionados, opcionalmente só os atribuídos a você, ordenados por prioridade.
@@ -28,8 +28,8 @@ Baixe o instalador `.exe` em [Releases](../../releases). Como o instalador não 
 Ou rode do código:
 
 ```bash
-git clone https://github.com/<seu-usuario>/farol.git
-cd farol
+git clone https://github.com/<seu-usuario>/TopWatch.git
+cd TopWatch
 npm install
 npm start          # ou: npm run demo
 ```
