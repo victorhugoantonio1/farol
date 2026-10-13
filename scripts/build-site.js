@@ -24,7 +24,7 @@ const marker = '<script src="bot.js"></script>';
 if (!html.includes(marker)) throw new Error('island.html mudou: não achei o <script src="bot.js">');
 fs.writeFileSync(path.join(OUT, 'demo', 'island.html'), html.replace(marker, `<script src="shim.js"></script>\n    ${marker}`));
 
-for (const f of ['preview.png', 'vigia.gif']) fs.copyFileSync(path.join(ROOT, 'docs', f), path.join(OUT, 'assets', f));
+for (const f of ['preview.png']) fs.copyFileSync(path.join(ROOT, 'docs', f), path.join(OUT, 'assets', f));
 fs.copyFileSync(path.join(ROOT, 'assets', 'icon.png'), path.join(OUT, 'assets', 'icon.png'));
 // Vigia da bandeja (mesma folha de quadros do app) pra animação da barra de tarefas de mentira
 fs.mkdirSync(path.join(OUT, 'assets', 'tray'), { recursive: true });

@@ -99,7 +99,7 @@ Quer testar contra um Zabbix de verdade sem mexer em produção? O [laboratório
 
 ## Limitações conhecidas
 
-- Feito e pensado para **Windows**. No Linux a janela não consegue deixar o mouse passar, então o retângulo da ilha fica clicável mesmo recolhido.
+- Feito e pensado para **Windows**. A versão para Linux está em desenvolvimento: hoje, lá, a janela não consegue deixar o mouse passar, então o retângulo da ilha fica clicável mesmo recolhido.
 - Jogos em tela cheia exclusiva ficam por cima da barra (o que é bom). Em tela cheia "sem bordas", esconda pela bandeja ou pelo atalho.
 
 ## Licença
