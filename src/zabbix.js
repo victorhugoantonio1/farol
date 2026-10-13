@@ -14,6 +14,9 @@ const SEVERITY_LABELS = ['Não classificado', 'Informação', 'Atenção', 'Méd
 // versão detectada por URL (vale enquanto o app estiver aberto)
 const detected = new Map();
 
+// hosts por trigger ("url#triggerid" -> nomes), pra não repetir trigger.get toda rodada
+const hostCache = new Map();
+
 function baseUrl(apiUrl) {
   return String(apiUrl)
     .replace(/\/api_jsonrpc\.php\/?$/i, '')
@@ -148,19 +151,22 @@ async function fetchProblems(server, { minSeverity = 2, limit = 50 } = {}) {
     limit: Number(limit),
   });
 
-  // problem.get não traz o host; buscamos pelos triggers.
-  const triggerIds = [...new Set(problems.map((p) => p.objectid))];
-  const hostsByTrigger = {};
-  if (triggerIds.length) {
+  // problem.get não traz o host; buscamos pelos triggers. Os hosts de um trigger não mudam,
+  // então só pergunta pelos triggers que ainda não conhece (na maioria das rodadas, nenhum).
+  const key = normalizeApiUrl(server.url);
+  const missing = [...new Set(problems.map((p) => p.objectid))].filter((id) => !hostCache.has(`${key}#${id}`));
+  if (missing.length) {
     const triggers = await call(server, 'trigger.get', {
-      triggerids: triggerIds,
+      triggerids: missing,
       output: ['triggerid'],
       selectHosts: ['hostid', 'host', 'name'],
     });
+    if (hostCache.size > 5000) hostCache.clear();
     for (const t of triggers) {
-      hostsByTrigger[t.triggerid] = (t.hosts || []).map((h) => h.name || h.host);
+      hostCache.set(`${key}#${t.triggerid}`, (t.hosts || []).map((h) => h.name || h.host));
     }
   }
+  const hostsOf = (triggerid) => hostCache.get(`${key}#${triggerid}`) || [];
 
   const base = baseUrl(normalizeApiUrl(server.url));
   return problems.map((p) => {
@@ -174,7 +180,7 @@ async function fetchProblems(server, { minSeverity = 2, limit = 50 } = {}) {
       title: p.name,
       severity,
       severityLabel: SEVERITY_LABELS[severity] || String(severity),
-      hosts: hostsByTrigger[p.objectid] || [],
+      hosts: hostsOf(p.objectid),
       since: Number(p.clock) * 1000,
       acknowledged: String(p.acknowledged) === '1',
       url: `${base}/tr_events.php?triggerid=${encodeURIComponent(p.objectid)}&eventid=${encodeURIComponent(p.eventid)}`,
@@ -256,5 +262,6 @@ module.exports = {
   _resetDetection: () => {
     detected.clear();
     workingMode.clear();
+    hostCache.clear();
   },
 };

@@ -17,7 +17,7 @@ const AUTH_MODES = ['auto', 'header', 'body'];
 
 const DEFAULTS = {
   demo: true,
-  pollSeconds: 30,
+  pollSeconds: 60,
   notify: true,
   // display: 'both' | 'zabbix' | 'glpi'; highlight: alerta grave toma a pílula; mascot: Vigia
   ui: { display: 'both', highlight: true, mascot: true },
@@ -40,6 +40,11 @@ function merge(base, extra) {
     }
   }
   return out;
+}
+
+// Intervalo da coleta: no mínimo 30 s pra não pesar no Zabbix/GLPI de ninguém.
+function clampPoll(v) {
+  return Math.min(600, Math.max(30, Number(v) || 60));
 }
 
 function newId() {
@@ -104,6 +109,7 @@ function createStore({ dir, safeStorage }) {
     const cfg = merge(DEFAULTS, migrate(raw));
     for (const [section, key] of SECRETS) cfg[section][key] = decode(cfg[section][key]);
     cfg.zabbix.servers = (cfg.zabbix.servers || []).map((s, i) => normalizeServer({ ...s, token: decode(s.token) }, i));
+    cfg.pollSeconds = clampPoll(cfg.pollSeconds);
     return cfg;
   }
 
@@ -153,7 +159,7 @@ function createStore({ dir, safeStorage }) {
       next.zabbix.servers = clone(current.zabbix.servers);
     }
 
-    next.pollSeconds = Math.min(600, Math.max(10, Number(next.pollSeconds) || 30));
+    next.pollSeconds = clampPoll(next.pollSeconds);
     if (!['both', 'zabbix', 'glpi'].includes(next.ui.display)) next.ui.display = 'both';
     return next;
   }

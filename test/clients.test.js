@@ -366,3 +366,19 @@ test('Zabbix: aceita URL colada da barra do navegador', () => {
   assert.equal(zabbix.normalizeApiUrl('zbx7.local'), 'http://zbx7.local/api_jsonrpc.php');
   assert.equal(zabbix.normalizeApiUrl('https://zbx/zabbix/api_jsonrpc.php'), 'https://zbx/zabbix/api_jsonrpc.php');
 });
+
+test('Zabbix: hosts dos triggers ficam em cache (trigger.get só pra trigger novo)', async () => {
+  zabbix._resetDetection();
+  const z7 = await fakeZabbix('7.0.5');
+  try {
+    const srv = { id: 'z7', url: z7.url, token: 'tok' };
+    const a = await zabbix.fetchProblems(srv);
+    const b = await zabbix.fetchProblems(srv);
+    assert.deepEqual(a[0].hosts, ['host-7.0.5']);
+    assert.deepEqual(b[0].hosts, ['host-7.0.5']);
+    assert.equal(z7.calls.filter((c) => c.method === 'problem.get').length, 2);
+    assert.equal(z7.calls.filter((c) => c.method === 'trigger.get').length, 1);
+  } finally {
+    z7.server.close();
+  }
+});
