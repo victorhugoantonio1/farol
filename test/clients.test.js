@@ -10,6 +10,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const zabbix = require('../src/zabbix');
+const { migrate } = require('../src/config');
 const { createGlpiClient } = require('../src/glpi');
 const { createStore } = require('../src/config');
 
@@ -58,7 +59,7 @@ test('Zabbix: busca problemas, junta os hosts e monta o link', async () => {
   });
 
   try {
-    const items = await zabbix.fetchProblems({ url: `${url}/zabbix`, token: 'abc', minSeverity: 3 });
+    const items = await zabbix.fetchProblems({ id: 'z7', name: 'Zabbix 7', url: `${url}/zabbix`, token: 'abc', auth: 'header' }, { minSeverity: 3 });
     assert.equal(items.length, 2);
     assert.equal(items[0].title, 'Disco cheio');
     assert.deepEqual(items[0].hosts, ['Banco 01']);
@@ -84,7 +85,7 @@ test('Zabbix: modo legado manda o token no corpo', async () => {
     json(res, 200, { jsonrpc: '2.0', id: body.id, result: [] });
   });
   try {
-    await zabbix.fetchProblems({ url: `${url}/api_jsonrpc.php`, token: 'old', legacyAuth: true });
+    await zabbix.fetchProblems({ id: 'z6', url: `${url}/api_jsonrpc.php`, token: 'old', legacyAuth: true });
     assert.equal(seen.header, undefined);
     assert.equal(seen.auth, 'old');
   } finally {
@@ -98,7 +99,7 @@ test('Zabbix: erro da API vira mensagem legível', async () => {
     json(res, 200, { jsonrpc: '2.0', id: body.id, error: { code: -32602, message: 'Invalid params.', data: 'Not authorized.' } });
   });
   try {
-    await assert.rejects(zabbix.fetchProblems({ url, token: 'x' }), /Invalid params\. \(Not authorized\.\)/);
+    await assert.rejects(zabbix.fetchProblems({ id: 'z', url, token: 'x', auth: 'header' }), /Invalid params\. \(Not authorized\.\)/);
   } finally {
     server.close();
   }
@@ -172,20 +173,32 @@ test('Config: segredos são criptografados no disco e não voltam pra tela', () 
     decryptString: (b) => b.toString().replace(/^enc:/, ''),
   };
   const store = createStore({ dir, safeStorage: fakeSafe });
-  store.save({ zabbix: { url: 'https://z', token: 'segredo' } });
+  store.save({
+    zabbix: {
+      servers: [
+        { id: 'z7', name: 'Zabbix 7', url: 'https://z7', token: 'segredo7' },
+        { id: 'z6', name: 'Zabbix 6', url: 'https://z6', token: 'segredo6', auth: 'body' },
+      ],
+    },
+    glpi: { userToken: 'gtok' },
+  });
 
   const onDisk = fs.readFileSync(path.join(dir, 'config.json'), 'utf8');
-  assert.ok(!onDisk.includes('"segredo"'));
+  assert.ok(!onDisk.includes('"segredo7"') && !onDisk.includes('"segredo6"') && !onDisk.includes('"gtok"'));
 
   const masked = store.getMasked();
-  assert.equal(masked.config.zabbix.token, '');
-  assert.equal(masked.hasSecret['zabbix.token'], true);
+  assert.equal(masked.config.zabbix.servers[0].token, '');
+  assert.equal(masked.hasSecret['zabbix.servers.z7.token'], true);
+  assert.equal(masked.hasSecret['glpi.userToken'], true);
 
-  // salvar com o campo vazio mantém o token
-  store.save({ zabbix: { url: 'https://z2', token: '' } });
+  // salvar com o token vazio mantém o token daquele servidor; remover um servidor apaga o dele
+  store.save({ zabbix: { servers: [{ id: 'z7', name: 'Zabbix 7', url: 'https://z7-novo', token: '' }] } });
   const reopened = createStore({ dir, safeStorage: fakeSafe });
-  assert.equal(reopened.get().zabbix.token, 'segredo');
-  assert.equal(reopened.get().zabbix.url, 'https://z2');
+  const servers = reopened.get().zabbix.servers;
+  assert.equal(servers.length, 1);
+  assert.equal(servers[0].token, 'segredo7');
+  assert.equal(servers[0].url, 'https://z7-novo');
+  assert.equal(reopened.get().glpi.userToken, 'gtok');
 });
 
 test('Zabbix: Reconhecer chama event.acknowledge com action 2', async () => {
@@ -196,10 +209,110 @@ test('Zabbix: Reconhecer chama event.acknowledge com action 2', async () => {
     json(res, 200, { jsonrpc: '2.0', id: body.id, result: { eventids: body.params.eventids } });
   });
   try {
-    await zabbix.acknowledge({ url, token: 't' }, '901');
+    await zabbix.acknowledge({ id: 'z', url, token: 't', auth: 'header' }, '901');
     assert.equal(seen.method, 'event.acknowledge');
     assert.deepEqual(seen.params, { eventids: ['901'], action: 2 });
   } finally {
     server.close();
   }
+});
+
+
+// Zabbix falso que se comporta como 6.0 (token só no corpo) ou 7.0 (token no cabeçalho)
+function fakeZabbix(versionString, { failVersion = false } = {}) {
+  const calls = [];
+  const modern = !zabbix.needsBodyAuth(versionString);
+  return serve((req, res, raw) => {
+    const body = JSON.parse(raw);
+    const header = req.headers.authorization;
+    calls.push({ method: body.method, header, bodyAuth: body.auth });
+    const reply = (result) => json(res, 200, { jsonrpc: '2.0', id: body.id, result });
+    const fail = (message, data) => json(res, 200, { jsonrpc: '2.0', id: body.id, error: { code: -32602, message, data } });
+    if (body.method === 'apiinfo.version') {
+      if (failVersion) return json(res, 403, {});
+      return reply(versionString);
+    }
+    const token = modern ? (header || '').replace(/^Bearer /, '') || body.auth : body.auth;
+    if (token !== 'tok') return fail('Invalid params.', 'Not authorized.');
+    if (body.method === 'problem.get') return reply([{ eventid: '10', objectid: '1', name: `Problema no ${versionString}`, severity: '4', clock: '1760000000', acknowledged: '0' }]);
+    if (body.method === 'trigger.get') return reply([{ triggerid: '1', hosts: [{ host: `host-${versionString}` }] }]);
+    if (body.method === 'event.acknowledge') return reply({ eventids: body.params.eventids });
+    fail('método inesperado');
+  }).then((srv) => ({ ...srv, calls }));
+}
+
+test('Zabbix: detecta a versão e escolhe o jeito de autenticar (6.0 no corpo, 7.0 no cabeçalho)', async () => {
+  zabbix._resetDetection();
+  const z6 = await fakeZabbix('6.0.30');
+  const z7 = await fakeZabbix('7.0.5');
+  try {
+    await zabbix.fetchProblems({ id: 'a', url: z6.url, token: 'tok' });
+    await zabbix.fetchProblems({ id: 'b', url: z7.url, token: 'tok' });
+    const p6 = z6.calls.find((c) => c.method === 'problem.get');
+    const p7 = z7.calls.find((c) => c.method === 'problem.get');
+    assert.equal(p6.bodyAuth, 'tok');
+    assert.equal(p6.header, undefined);
+    assert.equal(p7.header, 'Bearer tok');
+    assert.equal(p7.bodyAuth, undefined);
+  } finally {
+    z6.server.close();
+    z7.server.close();
+  }
+});
+
+test('Zabbix: sem conseguir ler a versão, tenta o cabeçalho e cai pro corpo se for recusado', async () => {
+  zabbix._resetDetection();
+  const z6 = await fakeZabbix('6.0.30', { failVersion: true });
+  try {
+    const items = await zabbix.fetchProblems({ id: 'a', url: z6.url, token: 'tok' });
+    assert.equal(items.length, 1);
+    const tries = z6.calls.filter((c) => c.method === 'problem.get');
+    assert.equal(tries[0].header, 'Bearer tok');
+    assert.equal(tries[1].bodyAuth, 'tok');
+  } finally {
+    z6.server.close();
+  }
+});
+
+test('Zabbix: vários servidores juntos, ids sem colisão e um fora do ar não derruba os outros', async () => {
+  zabbix._resetDetection();
+  const z6 = await fakeZabbix('6.0.30');
+  const z7 = await fakeZabbix('7.0.5');
+  try {
+    const cfg = {
+      minSeverity: 2,
+      servers: [
+        { id: 'z6', name: 'Zabbix 6', url: z6.url, token: 'tok' },
+        { id: 'z7', name: 'Zabbix 7', url: z7.url, token: 'tok' },
+        { id: 'off', name: 'Desligado', url: 'http://127.0.0.1:9', token: 'tok' },
+        { id: 'skip', name: 'Inativo', url: z7.url, token: 'tok', enabled: false },
+      ],
+    };
+    const { items, errors, servers } = await zabbix.fetchAll(cfg);
+    assert.equal(servers, 3);
+    assert.equal(items.length, 2);
+    // mesmo eventid (10) nos dois servidores, ids diferentes no app
+    assert.deepEqual(items.map((i) => i.id).sort(), ['zbx-z6-10', 'zbx-z7-10']);
+    assert.deepEqual(items.map((i) => i.serverName).sort(), ['Zabbix 6', 'Zabbix 7']);
+    assert.equal(errors.length, 1);
+    assert.equal(errors[0].serverId, 'off');
+    assert.match(errors[0].message, /Desligado/);
+  } finally {
+    z6.server.close();
+    z7.server.close();
+  }
+});
+
+test('Config: a configuração antiga (um Zabbix só) vira o primeiro servidor da lista', () => {
+  const old = { zabbix: { enabled: true, url: 'https://z', token: 'x', legacyAuth: true, insecure: true, minSeverity: 3 } };
+  const m = migrate(old);
+  assert.equal(m.zabbix.enabled, true);
+  assert.equal(m.zabbix.minSeverity, 3);
+  assert.equal(m.zabbix.servers.length, 1);
+  assert.deepEqual(
+    { url: m.zabbix.servers[0].url, token: m.zabbix.servers[0].token, auth: m.zabbix.servers[0].auth, insecure: m.zabbix.servers[0].insecure },
+    { url: 'https://z', token: 'x', auth: 'body', insecure: true }
+  );
+  assert.equal(m.zabbix.url, undefined);
+  assert.equal(migrate({ zabbix: { servers: [] } }).zabbix.servers.length, 0);
 });

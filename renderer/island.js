@@ -169,6 +169,7 @@ function renderHero(item) {
     meta.append(el('span', 'sev', item.severityLabel));
     meta.append(el('span', null, '·'));
     meta.append(el('span', 'host', item.hosts.join(', ') || '—'));
+    if (state.zabbix.multi && item.serverName) meta.append(el('span', 'srv', item.serverName));
     meta.append(el('span', null, '·'));
     meta.append(el('span', null, ago(item.since)));
     ack.classList.remove('hidden');
@@ -195,7 +196,9 @@ function row(item) {
   li.style.setProperty('--c', item.source === 'zabbix' ? sevColor(item.severity) : prioColor(item.priority));
   li.append(el('span', 'dot'));
   li.append(el('span', 'title', item.title));
-  li.append(el('span', 'where', item.source === 'zabbix' ? item.hosts.join(', ') : `#${item.number} · ${item.statusLabel}`));
+  const where = el('span', 'where', item.source === 'zabbix' ? item.hosts.join(', ') : `#${item.number} · ${item.statusLabel}`);
+  if (item.source === 'zabbix' && state.zabbix.multi && item.serverName) where.prepend(el('span', 'srv', item.serverName));
+  li.append(where);
   li.append(el('span', 'age', ago(item.source === 'zabbix' ? item.since : item.updated || item.since)));
   li.addEventListener('click', () => topwatch.openUrl(item.url));
   li.addEventListener('mouseenter', () => {
@@ -298,7 +301,7 @@ $('hero-ack').addEventListener('click', async () => {
   const btn = $('hero-ack');
   btn.disabled = true;
   btn.textContent = 'Reconhecendo…';
-  const res = await topwatch.acknowledge(heroItem.eventid);
+  const res = await topwatch.acknowledge(heroItem.id);
   if (res.ok) heroBot.celebrate();
   if (!res.ok) {
     btn.disabled = false;

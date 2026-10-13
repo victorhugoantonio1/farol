@@ -42,7 +42,7 @@ const allowedUrls = new Set();
 let state = {
   demo: true,
   updatedAt: null,
-  zabbix: { enabled: true, items: [], error: null },
+  zabbix: { enabled: true, items: [], error: null, multi: false },
   glpi: { enabled: true, items: [], error: null },
 };
 
@@ -196,21 +196,26 @@ async function poll() {
       state = {
         demo: true,
         updatedAt: Date.now(),
-        zabbix: { enabled: true, items: snap.problems, error: null },
+        zabbix: { enabled: true, items: snap.problems, error: null, multi: true },
         glpi: { enabled: true, items: snap.tickets, error: null },
       };
     } else {
       const [z, g] = await Promise.allSettled([
-        cfg.zabbix.enabled ? zabbix.fetchProblems(cfg.zabbix) : Promise.resolve([]),
+        cfg.zabbix.enabled ? zabbix.fetchAll(cfg.zabbix) : Promise.resolve({ items: [], errors: [], servers: 0 }),
         cfg.glpi.enabled ? glpi.fetchTickets(cfg.glpi) : Promise.resolve([]),
       ]);
+      // servidor que falhou nesta rodada mantém os alertas da rodada anterior (sem piscar a lista)
+      const zr = z.status === 'fulfilled' ? z.value : { items: [], errors: [{ serverId: '*', message: z.reason.message }], servers: 0 };
+      const failed = new Set(zr.errors.map((er) => er.serverId));
+      const kept = state.zabbix.items.filter((it) => failed.has(it.serverId) || failed.has('*'));
       state = {
         demo: false,
         updatedAt: Date.now(),
         zabbix: {
           enabled: cfg.zabbix.enabled,
-          items: z.status === 'fulfilled' ? z.value : state.zabbix.items,
-          error: z.status === 'rejected' ? z.reason.message : null,
+          items: [...zr.items, ...kept],
+          error: zr.errors.length ? zr.errors.map((er) => er.message).join(' · ') : null,
+          multi: zabbix.activeServers(cfg.zabbix).length > 1,
         },
         glpi: {
           enabled: cfg.glpi.enabled,
@@ -313,14 +318,18 @@ ipcMain.on('open-url', (_e, url) => {
   if (typeof url === 'string' && allowedUrls.has(url) && /^https?:\/\//i.test(url)) shell.openExternal(url);
 });
 
-ipcMain.handle('zabbix:ack', async (e, eventid) => {
+ipcMain.handle('zabbix:ack', async (e, itemId) => {
   if (!fromWindow(e, island)) return { ok: false, message: 'Origem inválida' };
-  // só aceita eventos que estão na lista atual
-  const item = state.zabbix.items.find((p) => p.eventid === eventid);
+  // só aceita alertas que estão na lista atual; o id já diz de qual servidor ele veio
+  const item = state.zabbix.items.find((p) => p.id === itemId);
   if (!item) return { ok: false, message: 'Esse alerta não está mais aberto.' };
   try {
-    if (state.demo) demo.acknowledge(eventid);
-    else await zabbix.acknowledge(store.get().zabbix, eventid);
+    if (state.demo) demo.acknowledge(item.eventid);
+    else {
+      const server = store.get().zabbix.servers.find((s) => s.id === item.serverId);
+      if (!server) return { ok: false, message: 'O servidor desse alerta foi removido das configurações.' };
+      await zabbix.acknowledge(server, item.eventid);
+    }
     item.acknowledged = true;
     broadcast();
     setTimeout(poll, 1500);
@@ -348,11 +357,18 @@ ipcMain.handle('settings:save', (e, changes) => {
   return { ok: true };
 });
 
-ipcMain.handle('settings:test', async (e, which, changes) => {
+ipcMain.handle('settings:test', async (e, which, changes, serverId) => {
   if (!fromWindow(e, settingsWin)) return { ok: false, message: 'Origem inválida' };
   const cfg = store.withChanges(changes); // testa o que está na tela, sem salvar
   try {
-    const message = which === 'zabbix' ? await zabbix.test(cfg.zabbix) : await createGlpiClient().test(cfg.glpi);
+    let message;
+    if (which === 'zabbix') {
+      const server = cfg.zabbix.servers.find((s) => s.id === serverId);
+      if (!server) throw new Error('Servidor não encontrado.');
+      message = await zabbix.test(server, { minSeverity: cfg.zabbix.minSeverity });
+    } else {
+      message = await createGlpiClient().test(cfg.glpi);
+    }
     return { ok: true, message };
   } catch (err) {
     return { ok: false, message: err.message };
@@ -383,7 +399,7 @@ app.whenReady().then(() => {
   restartPolling();
 
   const cfg = store.get();
-  if (!FORCE_DEMO && cfg.demo && !cfg.zabbix.url && !cfg.glpi.url) {
+  if (!FORCE_DEMO && cfg.demo && !cfg.zabbix.servers.length && !cfg.glpi.url) {
     // primeira vez: mostra a ilha em demo e abre as configurações
     setTimeout(openSettings, 800);
   }

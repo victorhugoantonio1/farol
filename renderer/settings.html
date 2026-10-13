@@ -56,16 +56,6 @@
           <label class="switch inline"><input type="checkbox" id="zabbix.enabled" /> Ativo</label>
         </div>
         <label class="field">
-          <b>URL do Zabbix</b>
-          <input type="url" id="zabbix.url" placeholder="https://zabbix.empresa.local" spellcheck="false" />
-          <small>O endereço do frontend. O caminho <code>/api_jsonrpc.php</code> é adicionado sozinho.</small>
-        </label>
-        <label class="field">
-          <b>Token de API</b>
-          <input type="password" id="zabbix.token" autocomplete="off" spellcheck="false" />
-          <small id="zabbix.token-hint">Crie em Usuários → Tokens de API. Pra só ver os alertas, leitura basta; o botão "Reconhecer" precisa de permissão de escrita no host.</small>
-        </label>
-        <label class="field">
           <b>Severidade mínima</b>
           <select id="zabbix.minSeverity">
             <option value="0">Não classificado</option>
@@ -75,13 +65,12 @@
             <option value="4">Alta</option>
             <option value="5">Desastre</option>
           </select>
+          <small>Vale pra todos os servidores.</small>
         </label>
-        <label class="check"><input type="checkbox" id="zabbix.legacyAuth" /> Zabbix anterior ao 6.4 (autenticação no corpo da requisição)</label>
-        <label class="check"><input type="checkbox" id="zabbix.insecure" /> Aceitar certificado autoassinado</label>
-        <div class="test">
-          <button class="secondary" data-test="zabbix">Testar conexão</button>
-          <span class="result" id="result-zabbix"></span>
-        </div>
+
+        <div id="servers" class="servers"></div>
+        <button id="add-server" class="secondary add">+ Adicionar servidor Zabbix</button>
+        <small class="hint-servers">Os alertas de todos os servidores aparecem juntos, com uma etiqueta dizendo de qual veio. A versão (6.0, 6.4, 7…) é detectada sozinha.</small>
       </section>
 
       <section>

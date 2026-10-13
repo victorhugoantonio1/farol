@@ -5,20 +5,24 @@
 
 const fs = require('node:fs');
 const path = require('node:path');
+const crypto = require('node:crypto');
 
+// segredos de caminho fixo; os tokens dos servidores Zabbix são tratados à parte
 const SECRETS = [
-  ['zabbix', 'token'],
   ['glpi', 'userToken'],
   ['glpi', 'appToken'],
 ];
+
+const AUTH_MODES = ['auto', 'header', 'body'];
 
 const DEFAULTS = {
   demo: true,
   pollSeconds: 30,
   notify: true,
-  // display: 'both' | 'zabbix' | 'glpi'; highlight: alerta grave toma a pílula; mascot: coruja
+  // display: 'both' | 'zabbix' | 'glpi'; highlight: alerta grave toma a pílula; mascot: Vigia
   ui: { display: 'both', highlight: true, mascot: true },
-  zabbix: { enabled: false, url: '', token: '', legacyAuth: false, insecure: false, minSeverity: 2 },
+  // servers: [{ id, name, url, token, auth: 'auto'|'header'|'body', insecure, enabled }]
+  zabbix: { enabled: false, minSeverity: 2, servers: [] },
   glpi: { enabled: false, url: '', userToken: '', appToken: '', onlyMine: true, insecure: false },
 };
 
@@ -35,6 +39,33 @@ function merge(base, extra) {
       out[k] = v;
     }
   }
+  return out;
+}
+
+function newId() {
+  return crypto.randomBytes(4).toString('hex');
+}
+
+// Limpa e completa um servidor vindo do disco ou da tela.
+function normalizeServer(s, i) {
+  return {
+    id: typeof s.id === 'string' && /^[a-z0-9-]{1,32}$/i.test(s.id) ? s.id : newId(),
+    name: String(s.name || '').trim().slice(0, 40) || `Zabbix ${i + 1}`,
+    url: String(s.url || '').trim(),
+    token: s.token || '',
+    auth: AUTH_MODES.includes(s.auth) ? s.auth : 'auto',
+    insecure: !!s.insecure,
+    enabled: s.enabled !== false,
+  };
+}
+
+// Configuração antiga (um Zabbix só, com url/token direto em "zabbix") vira o primeiro servidor.
+function migrate(raw) {
+  const z = raw && raw.zabbix;
+  if (!z || Array.isArray(z.servers)) return raw;
+  const out = clone(raw);
+  const { url, token, legacyAuth, insecure, ...rest } = z;
+  out.zabbix = { ...rest, servers: url || token ? [{ id: 'principal', name: 'Zabbix', url, token, auth: legacyAuth ? 'body' : 'auto', insecure }] : [] };
   return out;
 }
 
@@ -70,14 +101,16 @@ function createStore({ dir, safeStorage }) {
     } catch {
       // primeiro uso
     }
-    const cfg = merge(DEFAULTS, raw);
+    const cfg = merge(DEFAULTS, migrate(raw));
     for (const [section, key] of SECRETS) cfg[section][key] = decode(cfg[section][key]);
+    cfg.zabbix.servers = (cfg.zabbix.servers || []).map((s, i) => normalizeServer({ ...s, token: decode(s.token) }, i));
     return cfg;
   }
 
   function persist() {
     const out = clone(current);
     for (const [section, key] of SECRETS) out[section][key] = encode(out[section][key]);
+    out.zabbix.servers = out.zabbix.servers.map((s) => ({ ...s, token: encode(s.token) }));
     fs.mkdirSync(dir, { recursive: true });
     fs.writeFileSync(file, JSON.stringify(out, null, 2), { mode: 0o600 });
   }
@@ -94,6 +127,10 @@ function createStore({ dir, safeStorage }) {
       has[`${section}.${key}`] = !!out[section][key];
       out[section][key] = '';
     }
+    out.zabbix.servers = out.zabbix.servers.map((s) => {
+      has[`zabbix.servers.${s.id}.token`] = !!s.token;
+      return { ...s, token: '' };
+    });
     return { config: out, hasSecret: has, encryptionAvailable: canEncrypt };
   }
 
@@ -104,6 +141,18 @@ function createStore({ dir, safeStorage }) {
       const incoming = changes && changes[section] ? changes[section][key] : undefined;
       if (incoming === undefined || incoming === '') next[section][key] = current[section][key];
     }
+
+    const incomingServers = changes && changes.zabbix && Array.isArray(changes.zabbix.servers) ? changes.zabbix.servers : null;
+    if (incomingServers) {
+      const byId = new Map(current.zabbix.servers.map((s) => [s.id, s]));
+      next.zabbix.servers = incomingServers.slice(0, 10).map((s, i) => {
+        const old = byId.get(s.id);
+        return normalizeServer({ ...s, token: s.token || (old ? old.token : '') }, i);
+      });
+    } else {
+      next.zabbix.servers = clone(current.zabbix.servers);
+    }
+
     next.pollSeconds = Math.min(600, Math.max(10, Number(next.pollSeconds) || 30));
     if (!['both', 'zabbix', 'glpi'].includes(next.ui.display)) next.ui.display = 'both';
     return next;
@@ -123,4 +172,4 @@ function createStore({ dir, safeStorage }) {
   return { get, getMasked, withChanges, save, setFlag, file, canEncrypt };
 }
 
-module.exports = { createStore, DEFAULTS };
+module.exports = { createStore, DEFAULTS, migrate, normalizeServer };

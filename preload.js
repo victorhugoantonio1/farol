@@ -12,7 +12,7 @@ contextBridge.exposeInMainWorld('topwatch', {
   openSettings: () => ipcRenderer.send('island:settings'),
   unpin: () => ipcRenderer.send('island:unpin'),
   openUrl: (url) => ipcRenderer.send('open-url', url),
-  acknowledge: (eventid) => ipcRenderer.invoke('zabbix:ack', eventid),
+  acknowledge: (itemId) => ipcRenderer.invoke('zabbix:ack', itemId),
   onState: (fn) => ipcRenderer.on('state', (_e, s) => fn(s)),
   onPinned: (fn) => ipcRenderer.on('pinned', (_e, p) => fn(p)),
   onAlert: (fn) => ipcRenderer.on('alert', () => fn()),
@@ -20,5 +20,5 @@ contextBridge.exposeInMainWorld('topwatch', {
   // configurações
   getSettings: () => ipcRenderer.invoke('settings:get'),
   saveSettings: (changes) => ipcRenderer.invoke('settings:save', changes),
-  testConnection: (which, changes) => ipcRenderer.invoke('settings:test', which, changes),
+  testConnection: (which, changes, serverId) => ipcRenderer.invoke('settings:test', which, changes, serverId),
 });

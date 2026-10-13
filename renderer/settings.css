@@ -258,3 +258,88 @@ button:disabled {
   color: var(--accent);
   font-size: 12.5px;
 }
+
+/* ---------- servidores Zabbix ---------- */
+
+.servers {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.server {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: rgba(255, 255, 255, 0.015);
+}
+
+.server-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.server-head .srv-name {
+  flex: 1;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  padding: 6px 8px;
+  color: var(--text);
+  font: inherit;
+  font-weight: 700;
+}
+
+.server-head .srv-name:hover,
+.server-head .srv-name:focus {
+  border-color: var(--line);
+  outline: none;
+}
+
+.icon-btn {
+  background: transparent;
+  border: 1px solid var(--line);
+  color: var(--muted);
+  border-radius: 8px;
+  padding: 4px 9px;
+  font-weight: 600;
+}
+
+.icon-btn:hover {
+  color: var(--danger);
+  border-color: color-mix(in srgb, var(--danger) 50%, var(--line));
+}
+
+.row-2 {
+  display: grid;
+  grid-template-columns: 180px 1fr;
+  gap: 14px;
+  align-items: end;
+}
+
+.row-2 .check {
+  padding-bottom: 9px;
+}
+
+.add {
+  align-self: flex-start;
+}
+
+.hint-servers {
+  margin-top: -4px;
+}
+
+@media (max-width: 520px) {
+  .row-2 {
+    grid-template-columns: 1fr;
+  }
+}
+
+.test button {
+  white-space: nowrap;
+  flex: none;
+}

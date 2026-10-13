@@ -11,6 +11,7 @@ Feito pra quem trabalha em NOC / suporte de infra e vive alternando entre o Zabb
 - **Luz do TopWatch**: verde quando está tudo calmo, amarela/laranja/vermelha conforme a severidade do pior alerta aberto. Em Alta ou Desastre, um feixe gira em volta da luz.
 - **Pílula inteligente**: recolhida, mostra a contagem (`3 alertas · 5 chamados`) ou, se tiver algo grave, direto o que é (`Desastre · srv-app02`).
 - **Card de destaque**: ao abrir, o alerta mais grave vem em cima com **Reconhecer** (ack no Zabbix) e **Abrir**. O resto fica numa lista compacta.
+- **Vários Zabbix ao mesmo tempo**: cadastre quantos servidores quiser (ex.: um 6.0 com clientes antigos e um 7.0). Os alertas aparecem juntos, cada um com a etiqueta do servidor de onde veio, e o **Reconhecer** vai pro servidor certo. Se um cair, os outros continuam aparecendo.
 - **Chamados do GLPI**: os não solucionados, opcionalmente só os atribuídos a você, ordenados por prioridade.
 - **Notificação do Windows** para problemas novos de severidade Alta ou Desastre.
 - **Vigia**: um robozinho que segue o mouse, olha pra linha sob o cursor, leva susto com alerta novo, fica vermelho no Desastre, acena quando você reconhece e desliga quando está tudo calmo. Clique nele pra cutucar (três vezes rápido e ele dá glitch). Dá pra desligar nas configurações.
@@ -40,11 +41,15 @@ Pra gerar o instalador localmente: `npm run dist` (sai em `dist/`).
 
 Clique com o botão direito no ícone da bandeja → **Configurações…**
 
-**Zabbix** (testado contra a API JSON-RPC do 6.4+; há uma opção para versões anteriores)
+**Zabbix** (5.4 em diante; testado no 6.0 e no 7.0)
 
-1. No Zabbix: *Usuários → Tokens de API → Criar token*.
+1. Em cada Zabbix: *Usuários → Tokens de API → Criar token*.
 2. Use um usuário dedicado. Leitura basta pra ver os alertas; o botão **Reconhecer** precisa de permissão de escrita nos hosts.
-3. Cole a URL do frontend (ex.: `https://zabbix.empresa.local`) e o token.
+3. Em **+ Adicionar servidor Zabbix**, dê um nome (ex.: `Zabbix 6`), cole a URL do frontend (ex.: `https://zabbix.empresa.local`) e o token. Repita pra cada servidor.
+
+A versão é detectada sozinha: até o 6.2 o token vai no corpo da requisição, do 6.4 em diante vai no cabeçalho `Authorization`. Se um proxy atrapalhar a detecção, force o modo no campo **Autenticação** daquele servidor. A severidade mínima vale pra todos.
+
+Quem já usava um Zabbix só não precisa refazer nada: a configuração antiga vira o primeiro servidor da lista.
 
 **GLPI** (API REST `apirest.php`, GLPI 9.5/10/11)
 
@@ -65,13 +70,13 @@ Servidor interno com certificado autoassinado? Marque "aceitar certificado autoa
 
 - **Ilha**: uma janela transparente, sem borda e sempre no topo que **deixa o mouse passar** (`setIgnoreMouseEvents` com `forward`). Quando o cursor entra na pílula, ela passa a aceitar cliques e expande; ao sair, volta a ser "fantasma".
 - **Coleta**: o processo principal consulta as APIs a cada N segundos (sem CORS, com suporte a certificado autoassinado) e manda o estado pra interface via IPC.
-- **Zabbix**: `problem.get` + `trigger.get` (pra pegar os hosts) e `event.acknowledge` no botão Reconhecer.
+- **Zabbix**: `apiinfo.version` pra descobrir como autenticar, `problem.get` + `trigger.get` (pra pegar os hosts) em todos os servidores em paralelo, e `event.acknowledge` no botão Reconhecer.
 - **GLPI**: `initSession` com user_token, `search/Ticket` filtrando status "não solucionado", sessão reaproveitada e refeita se expirar.
 
 ```
 main.js            processo principal: janelas, bandeja, coleta, IPC
 preload.js         ponte mínima entre interface e processo principal
-src/zabbix.js      cliente JSON-RPC do Zabbix
+src/zabbix.js      cliente JSON-RPC do Zabbix (vários servidores, 5.4 a 7.x)
 src/glpi.js        cliente REST do GLPI
 src/config.js      configurações + tokens criptografados
 src/demo.js        dados de exemplo
