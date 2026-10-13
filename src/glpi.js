@@ -47,7 +47,7 @@ function parseGlpiDate(value) {
 }
 
 function createGlpiClient() {
-  let session = null; // { key, token }
+  let session = null; // { key, token, userId, profile, profileInterface, entities }
 
   function sessionKey(cfg) {
     return `${normalizeApiUrl(cfg.url)}|${cfg.userToken}|${cfg.appToken}`;
@@ -69,7 +69,49 @@ function createGlpiClient() {
     });
     if (res.status !== 200 || !res.json || !res.json.session_token) throw glpiError(res, 'GLPI (login)');
     session = { key: sessionKey(cfg), token: res.json.session_token };
+    await prepareSession(cfg, api);
     return session.token;
+  }
+
+  // A sessão da API nasce no perfil e na entidade PADRÃO do usuário, sem as subentidades.
+  // Num GLPI com entidades por cliente (TRADE > CONTRATO > ...), isso esconde quase tudo.
+  // Aqui: ativa todas as entidades (com subentidades) e, se o perfil padrão for de
+  // autoatendimento, troca pra um perfil técnico. Se a versão não suportar, segue como está.
+  async function prepareSession(cfg, api) {
+    const h = { ...baseHeaders(cfg), 'Session-Token': session.token };
+    const opts = (extra) => ({ headers: h, insecure: !!cfg.insecure, ...extra });
+    const allEntities = () =>
+      request(`${api}/changeActiveEntities`, opts({ method: 'POST', body: { entities_id: 'all', is_recursive: true } }));
+    const full = async () => {
+      const r = await request(`${api}/getFullSession`, opts());
+      return (r.status === 200 && r.json && r.json.session) || null;
+    };
+    try {
+      await allEntities();
+      let s = await full();
+      if (s && s.glpiactiveprofile && s.glpiactiveprofile.interface === 'helpdesk') {
+        const current = String(s.glpiactiveprofile.id);
+        for (const id of Object.keys(s.glpiprofiles || {})) {
+          if (id === current) continue;
+          const ch = await request(`${api}/changeActiveProfile`, opts({ method: 'POST', body: { profiles_id: Number(id) } }));
+          if (ch.status !== 200) continue;
+          await allEntities(); // trocar de perfil volta pra entidade padrão
+          const next = await full();
+          if (next && next.glpiactiveprofile && next.glpiactiveprofile.interface === 'central') {
+            s = next;
+            break;
+          }
+        }
+      }
+      if (s) {
+        session.userId = s.glpiID ? String(s.glpiID) : null;
+        session.profile = s.glpiactiveprofile ? s.glpiactiveprofile.name : null;
+        session.profileInterface = s.glpiactiveprofile ? s.glpiactiveprofile.interface : null;
+        session.entities = s.glpiactiveentities ? Object.keys(s.glpiactiveentities).length : null;
+      }
+    } catch {
+      // GLPI antigo ou endpoint bloqueado: fica com o padrão da sessão
+    }
   }
 
   async function getSession(cfg) {
@@ -90,7 +132,8 @@ function createGlpiClient() {
       q.set(`criteria[${i}][link]`, 'AND');
       q.set(`criteria[${i}][field]`, F.technician);
       q.set(`criteria[${i}][searchtype]`, 'equals');
-      q.set(`criteria[${i}][value]`, 'myself');
+      // o id do usuário é mais confiável que o "myself", que nem toda versão aceita na busca
+      q.set(`criteria[${i}][value]`, (session && session.userId) || 'myself');
       i++;
     }
     [F.name, F.id, F.priority, F.status, F.date, F.dateMod].forEach((f, k) => q.set(`forcedisplay[${k}]`, f));
@@ -140,7 +183,15 @@ function createGlpiClient() {
   async function test(cfg) {
     session = null;
     const items = await fetchTickets({ ...cfg, limit: 5 });
-    return `Conectado ao GLPI. ${items.length ? `${items.length}+ chamados abertos${cfg.onlyMine ? ' com você' : ''}.` : 'Nenhum chamado aberto.'}`;
+    const info = [];
+    if (session && session.profile) info.push(`perfil ${session.profile}`);
+    if (session && session.entities) info.push(`${session.entities} ${session.entities === 1 ? 'entidade' : 'entidades'}`);
+    const head = `Conectado ao GLPI${info.length ? ` (${info.join(', ')})` : ''}.`;
+    if (items.length) return `${head} ${items.length}+ chamados abertos${cfg.onlyMine ? ' atribuídos a você' : ''}.`;
+    if (session && session.profileInterface === 'helpdesk') {
+      return `${head} Nenhum chamado: o perfil ativo é de autoatendimento e só enxerga chamados que você abriu. Peça um perfil técnico pro seu usuário no GLPI.`;
+    }
+    return `${head} Nenhum chamado aberto${cfg.onlyMine ? ' atribuído a você como técnico. Se o chamado está só no seu grupo, desmarque "só os meus"' : ''}.`;
   }
 
   async function close(cfg) {

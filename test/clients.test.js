@@ -382,3 +382,72 @@ test('Zabbix: hosts dos triggers ficam em cache (trigger.get só pra trigger nov
     z7.server.close();
   }
 });
+
+test('GLPI: ativa todas as entidades, sai do perfil de autoatendimento e filtra pelo id do técnico', async () => {
+  let active = { profile: 1, entities: 'padrão' };
+  const profiles = { 1: { name: 'Self-Service', interface: 'helpdesk' }, 4: { name: 'Técnico', interface: 'central' } };
+  let lastQuery;
+  const calls = [];
+  const { server, url } = await serve((req, res, raw) => {
+    const u = new URL(req.url, 'http://x');
+    const ep = u.pathname.replace('/apirest.php/', '');
+    calls.push(ep);
+    if (ep === 'initSession') return json(res, 200, { session_token: 's1' });
+    if (ep === 'changeActiveEntities') {
+      const b = JSON.parse(raw);
+      active.entities = b.entities_id === 'all' && b.is_recursive ? 'todas' : 'padrão';
+      return json(res, 200, true);
+    }
+    if (ep === 'changeActiveProfile') {
+      active = { profile: JSON.parse(raw).profiles_id, entities: 'padrão' };
+      return json(res, 200, true);
+    }
+    if (ep === 'getFullSession') {
+      return json(res, 200, {
+        session: {
+          glpiID: 42,
+          glpiactiveprofile: { id: active.profile, ...profiles[active.profile] },
+          glpiprofiles: { 1: { name: 'Self-Service' }, 4: { name: 'Técnico' } },
+          glpiactiveentities: active.entities === 'todas' ? { 0: 0, 3: 3, 7: 7 } : { 0: 0 },
+        },
+      });
+    }
+    if (ep === 'search/Ticket') {
+      lastQuery = u.searchParams;
+      // só aparece com perfil técnico, todas as entidades e filtro pelo id 42
+      const ok = active.profile === 4 && active.entities === 'todas' && lastQuery.get('criteria[1][value]') === '42';
+      return json(res, 200, { totalcount: ok ? 1 : 0, data: ok ? [{ 1: 'teste', 2: 24234, 3: 4, 12: 2, 15: '2026-10-13 11:55:00', 19: '2026-10-13 11:55:00' }] : [] });
+    }
+    json(res, 404, ['ERROR_RESOURCE_NOT_FOUND_NOR_COMMONDBTM', '']);
+  });
+  try {
+    const glpi = createGlpiClient();
+    const msg = await glpi.test({ url, userToken: 'tok', onlyMine: true });
+    assert.match(msg, /perfil Técnico, 3 entidades/);
+    assert.match(msg, /1\+ chamados/);
+    const items = await glpi.fetchTickets({ url, userToken: 'tok', onlyMine: true });
+    assert.equal(items[0].number, 24234);
+  } finally {
+    server.close();
+  }
+});
+
+test('GLPI antigo sem getFullSession continua funcionando com "myself"', async () => {
+  let lastQuery;
+  const { server, url } = await serve((req, res) => {
+    const u = new URL(req.url, 'http://x');
+    if (u.pathname.endsWith('/initSession')) return json(res, 200, { session_token: 's1' });
+    if (u.pathname.endsWith('/search/Ticket')) {
+      lastQuery = u.searchParams;
+      return json(res, 200, { totalcount: 0, data: [] });
+    }
+    json(res, 400, ['ERROR_RESOURCE_NOT_FOUND_NOR_COMMONDBTM', '']);
+  });
+  try {
+    const items = await createGlpiClient().fetchTickets({ url, userToken: 'tok', onlyMine: true });
+    assert.equal(items.length, 0);
+    assert.equal(lastQuery.get('criteria[1][value]'), 'myself');
+  } finally {
+    server.close();
+  }
+});

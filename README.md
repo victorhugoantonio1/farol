@@ -72,7 +72,7 @@ Servidor interno com certificado autoassinado? Marque "aceitar certificado autoa
 - **Coleta**: o processo principal consulta as APIs a cada N segundos (sem CORS, com suporte a certificado autoassinado) e manda o estado pra interface via IPC.
 - **Zabbix**: `apiinfo.version` pra descobrir como autenticar, `problem.get` + `trigger.get` (pra pegar os hosts) em todos os servidores em paralelo, e `event.acknowledge` no botão Reconhecer.
 - **Carga**: por padrão, uma rodada a cada 60 s (mínimo 30 s). Em cada rodada vai **um `problem.get` por servidor** (até 50 problemas, só campos básicos). O `trigger.get` só sai quando aparece um trigger que o app ainda não conhece, porque os hosts ficam em cache. É mais leve que deixar um dashboard do Zabbix aberto.
-- **GLPI**: `initSession` com user_token, `search/Ticket` filtrando status "não solucionado", sessão reaproveitada e refeita se expirar.
+- **GLPI**: `initSession` com user_token, depois ativa todas as entidades com subentidades (e troca pra um perfil técnico se o padrão for de autoatendimento), `search/Ticket` filtrando status "não solucionado", sessão reaproveitada e refeita se expirar.
 
 ```
 main.js            processo principal: janelas, bandeja, coleta, IPC
@@ -94,7 +94,7 @@ Quer testar contra um Zabbix de verdade sem mexer em produção? O [laboratório
 
 - Feito e pensado para **Windows**. No Linux a janela não consegue deixar o mouse passar, então o retângulo da ilha fica clicável mesmo recolhido.
 - Jogos em tela cheia exclusiva ficam por cima da barra (o que é bom). Em tela cheia "sem bordas", esconda pela bandeja ou pelo atalho.
-- O filtro "só chamados atribuídos a mim" usa o valor `myself` da busca do GLPI. Se a sua versão não aceitar, desmarque a opção.
+- O filtro "só chamados atribuídos a mim" pega os chamados em que você é o **técnico**. Chamado atribuído só ao seu grupo não entra; nesse caso, desmarque a opção.
 
 ## Licença
 
