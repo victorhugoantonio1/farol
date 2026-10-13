@@ -26,6 +26,9 @@ fs.writeFileSync(path.join(OUT, 'demo', 'island.html'), html.replace(marker, `<s
 
 for (const f of ['preview.png', 'vigia.gif']) fs.copyFileSync(path.join(ROOT, 'docs', f), path.join(OUT, 'assets', f));
 fs.copyFileSync(path.join(ROOT, 'assets', 'icon.png'), path.join(OUT, 'assets', 'icon.png'));
+// Vigia da bandeja (mesma folha de quadros do app) pra animação da barra de tarefas de mentira
+fs.mkdirSync(path.join(OUT, 'assets', 'tray'), { recursive: true });
+for (const f of ['sheet@2x.png', 'frames.json']) fs.copyFileSync(path.join(ROOT, 'assets', 'tray', f), path.join(OUT, 'assets', 'tray', f));
 fs.writeFileSync(path.join(OUT, '.nojekyll'), '');
 
 console.log(`site montado em ${path.relative(ROOT, OUT)}/`);

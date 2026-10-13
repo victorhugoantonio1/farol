@@ -87,6 +87,15 @@
   window.addEventListener('message', (e) => {
     if (e.origin !== origin || e.source !== parent || !e.data || !e.data.tw) return;
     if (e.data.type === 'hello') tell({ type: 'level', level: level(snapshot()) });
+    // abre a barra sozinha por um tempo (a apresentação do site); se a pessoa
+    // estiver com o mouse em cima quando acabar, deixa aberta
+    if (e.data.type === 'peek') {
+      const island = document.getElementById('island');
+      island.classList.add('expanded');
+      setTimeout(() => {
+        if (!island.matches(':hover')) island.classList.remove('expanded');
+      }, Number(e.data.ms) || 4000);
+    }
     if (e.data.type === 'scenario' && SCENARIOS[e.data.name]) {
       scenario = e.data.name;
       acked.clear();

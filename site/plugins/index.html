@@ -12,11 +12,12 @@
     <link rel="stylesheet" href="../assets/site.css" />
   </head>
   <body>
-    <header class="wrap nav" style="padding-top: 28px">
-      <a class="brand" href="../"><span class="dot" aria-hidden="true"></span>TopWatch</a>
+    <header class="wrap nav">
+      <a class="brand" href="../"><span class="dot" aria-hidden="true" style="--glow: var(--ok)"></span>TopWatch</a>
       <ul>
-        <li><a href="../#recursos">Recursos</a></li>
+        <li><a href="../#como-funciona">Como funciona</a></li>
         <li><a href="./" aria-current="page">Plugins</a></li>
+        <li><a href="../#equipes">Para equipes</a></li>
         <li><a href="https://github.com/victorhugoantonio1/topwatch">GitHub</a></li>
       </ul>
     </header>
@@ -24,49 +25,43 @@
     <main>
       <div class="wrap page-head">
         <h1>Plugins</h1>
-        <p class="lead">Cada plugin liga o TopWatch a outro sistema e ganha uma aba na barra e uma seção nas configurações. O Zabbix já vem no app.</p>
+        <p class="lead">O TopWatch já vem com o Zabbix. Cada plugin liga a barra a outro sistema: ganha uma aba própria e uma seção nas configurações, e é instalado sem reiniciar.</p>
       </div>
 
-      <section style="border-top: 0; padding-top: 0">
+      <section style="padding-top: 0">
         <div class="wrap">
           <ul class="plugins">
             <li class="plugin" id="glpi">
               <span class="mono" aria-hidden="true">G</span>
               <h3>GLPI</h3>
-              <p>Aba Chamados com os chamados não solucionados, ordenados por prioridade. Mostra só os seus, se você quiser, e abre o chamado com um clique.</p>
-              <p class="meta">Funciona com a API REST do <strong>GLPI 9.5, 10 e 11</strong>. Entra em todas as entidades com subentidades e aceita token de usuário de serviço.</p>
+              <p>Aba Chamados com os chamados não solucionados, do mais urgente para o menos. Mostra só os atribuídos a você, se preferir, e abre o chamado com um clique.</p>
+              <p class="meta">GLPI 9.5, 10 e 11, pela API REST. Entra em todas as entidades com subentidades e funciona com token de usuário de serviço.</p>
+              <figure class="shot tab-preview"><img src="../assets/shots/glpi-tab.png" width="600" height="296" alt="Aba Chamados do plugin GLPI aberta na barra, com o chamado mais urgente em destaque e o botão Abrir chamado" loading="lazy" /></figure>
               <div class="side">
-                <span class="status ready">Disponível na edição para equipes</span>
+                <span class="badge ready">Disponível na edição para equipes</span>
                 <a class="btn" href="https://www.linkedin.com/in/vituhzzz/">Pedir o plugin</a>
               </div>
             </li>
-            <li class="plugin dim" id="alertmanager">
+            <li class="plugin later" id="alertmanager">
               <span class="mono" aria-hidden="true">Pr</span>
               <h3>Prometheus Alertmanager e Grafana</h3>
-              <p>Alertas do Alertmanager e do Grafana Alerting junto com os do Zabbix, com o botão Reconhecer criando um silêncio.</p>
-              <p class="meta">Planejado para a API v2 do Alertmanager, que o Grafana Alerting também usa.</p>
-              <div class="side">
-                <span class="status planned">Planejado</span>
-              </div>
+              <p>Alertas do Alertmanager e do Grafana Alerting junto com os do Zabbix, com o Reconhecer criando um silêncio.</p>
+              <div class="side"><span class="badge">Planejado</span></div>
             </li>
-            <li class="plugin dim" id="prtg">
+            <li class="plugin later" id="prtg">
               <span class="mono" aria-hidden="true">P</span>
               <h3>PRTG</h3>
               <p>Sensores em alerta e com erro do PRTG Network Monitor na lista de alertas.</p>
-              <div class="side">
-                <span class="status planned">Planejado</span>
-              </div>
+              <div class="side"><span class="badge">Planejado</span></div>
             </li>
-            <li class="plugin dim" id="datadog">
+            <li class="plugin later" id="datadog">
               <span class="mono" aria-hidden="true">D</span>
               <h3>Datadog</h3>
               <p>Monitores em alerta do Datadog, com a severidade de cada um.</p>
-              <div class="side">
-                <span class="status planned">Planejado</span>
-              </div>
+              <div class="side"><span class="badge">Planejado</span></div>
             </li>
           </ul>
-          <p class="intro">Usa um sistema que não está aqui? <a href="https://www.linkedin.com/in/vituhzzz/">Me conta qual</a>.</p>
+          <p class="note">Usa um sistema que não está aqui? <a href="https://www.linkedin.com/in/vituhzzz/">Me conta qual</a>.</p>
         </div>
       </section>
 
@@ -122,6 +117,7 @@
       <div class="wrap">
         <span>TopWatch é software livre, licença AGPL-3.0. Feito por Victor Hugo Antonio.</span>
         <nav>
+          <a href="../">Início</a>
           <a href="https://github.com/victorhugoantonio1/topwatch">GitHub</a>
           <a href="https://www.linkedin.com/in/vituhzzz/">LinkedIn</a>
         </nav>
