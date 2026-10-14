@@ -402,6 +402,27 @@ img {
 
 /* ---------- seções ---------- */
 
+.film {
+  margin: 28px 0 0;
+}
+
+.film video {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 18px;
+  border: 1px solid var(--rule);
+  background: #10141f;
+  box-shadow: 0 40px 90px -40px rgba(0, 0, 0, 0.8);
+}
+
+.film figcaption {
+  margin-top: 14px;
+  max-width: 70ch;
+  color: var(--mute);
+  font-size: 15px;
+}
+
 section {
   padding: 112px 0 0;
 }
