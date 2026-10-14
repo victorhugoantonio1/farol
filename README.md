@@ -26,9 +26,9 @@ Feito pra quem não quer ficar com uma aba do Zabbix aberta o dia inteiro. Outra
 
 ## Instalar
 
-Baixe o [**TopWatch-Setup.exe**](https://github.com/victorhugoantonio1/topwatch/releases/latest/download/TopWatch-Setup.exe) e abra. Ele instala só pro seu usuário (não pede administrador), cria o atalho e já abre o app. Não precisa instalar Node nem nada além dele. Se preferir não instalar, use o [**TopWatch-Portable.exe**](https://github.com/victorhugoantonio1/topwatch/releases/latest/download/TopWatch-Portable.exe).
+Baixe o [**TopWatch.msi**](https://github.com/victorhugoantonio1/topwatch/releases/latest/download/TopWatch.msi) e abra. Ele pede permissão de administrador, instala para todos os usuários em Arquivos de Programas e cria o atalho. Não precisa instalar Node nem nada além dele. Sem administrador, use o [**TopWatch-Setup.exe**](https://github.com/victorhugoantonio1/topwatch/releases/latest/download/TopWatch-Setup.exe), que instala só pro seu usuário, ou o [**TopWatch-Portable.exe**](https://github.com/victorhugoantonio1/topwatch/releases/latest/download/TopWatch-Portable.exe), que roda sem instalar.
 
-**Em empresas:** o [**TopWatch.msi**](https://github.com/victorhugoantonio1/topwatch/releases/latest/download/TopWatch.msi) instala para todos os usuários em Arquivos de Programas e pode ser distribuído pelo Intune ou por GPO (`msiexec /i TopWatch.msi /qn`). Computadores com a regra ASR do Defender que bloqueia executáveis pouco conhecidos não abrem o `.exe` baixado; nesse caso, a instalação é pela TI.
+**Em empresas:** o mesmo `TopWatch.msi` pode ser distribuído pelo Intune ou por GPO (`msiexec /i TopWatch.msi /qn`). Computadores com a regra ASR do Defender que bloqueia executáveis pouco conhecidos não abrem o `.exe` baixado; nesse caso, a instalação é pela TI.
 
 Como o instalador não é assinado digitalmente, o SmartScreen vai mostrar "Editor desconhecido": clique em **Mais informações → Executar assim mesmo**. O instalador é gerado pelo GitHub Actions a partir deste código (veja `.github/workflows/release.yml`).
 
