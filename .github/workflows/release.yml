@@ -1,11 +1,13 @@
-# Gera o instalador do Windows quando você cria uma tag (ex.: git tag v0.1.0 && git push --tags)
-# e anexa o .exe a um Release do GitHub. Assim qualquer pessoa vê que o binário
+# Gera o instalador do Windows e anexa os .exe a um Release do GitHub.
+# Roda quando você cria uma tag (git tag v0.1.0 && git push --tags) ou pelo botão
+# "Run workflow" em Actions → release (aí a versão vem do package.json). Assim qualquer pessoa vê que o binário
 # saiu deste código, e não de uma máquina qualquer.
 name: release
 
 on:
   push:
     tags: ['v*']
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -21,6 +23,13 @@ jobs:
           node-version: 22
           cache: npm
 
+      - name: Versão
+        id: v
+        shell: pwsh
+        run: |
+          $v = (Get-Content package.json | ConvertFrom-Json).version
+          "tag=v$v" >> $env:GITHUB_OUTPUT
+
       - run: npm ci
       - run: npm test
       - run: npx electron-builder --win --publish never
@@ -34,6 +43,8 @@ jobs:
 
       - uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ github.ref_type == 'tag' && github.ref_name || steps.v.outputs.tag }}
+          target_commitish: ${{ github.sha }}
           generate_release_notes: true
           body: |
             **TopWatch-Setup.exe**: instalador. Instala só pro seu usuário (não pede administrador), cria atalho e já abre o app.
