@@ -37,7 +37,7 @@ jobs:
       - name: Checksums
         shell: pwsh
         run: |
-          Get-ChildItem dist/*.exe | ForEach-Object {
+          Get-ChildItem dist/*.exe, dist/*.msi | ForEach-Object {
             "$((Get-FileHash $_ -Algorithm SHA256).Hash.ToLower())  $($_.Name)"
           } | Out-File -Encoding ascii dist/SHA256SUMS.txt
 
@@ -49,9 +49,11 @@ jobs:
           body: |
             **TopWatch-Setup.exe**: instalador. Instala só pro seu usuário (não pede administrador), cria atalho e já abre o app.
             **TopWatch-Portable.exe**: roda direto, sem instalar.
+            **TopWatch.msi**: para a TI. Instala para todos os usuários em Arquivos de Programas; dá para distribuir pelo Intune ou GPO (`msiexec /i TopWatch.msi /qn`).
 
             O instalador não é assinado digitalmente: no aviso do SmartScreen, clique em **Mais informações → Executar assim mesmo**.
             Confira o arquivo com o `SHA256SUMS.txt`.
           files: |
             dist/*.exe
+            dist/*.msi
             dist/SHA256SUMS.txt

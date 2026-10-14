@@ -1,6 +1,6 @@
 {
   "name": "topwatch",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Uma barrinha no topo da tela com os alertas do Zabbix, extensível por plugins.",
   "main": "main.js",
   "author": "Victor",
@@ -40,6 +40,12 @@
           ]
         },
         {
+          "target": "msi",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
           "target": "portable",
           "arch": [
             "x64"
@@ -65,6 +71,15 @@
     },
     "portable": {
       "artifactName": "TopWatch-Portable.${ext}"
+    },
+    "msi": {
+      "oneClick": true,
+      "perMachine": true,
+      "runAfterFinish": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "TopWatch",
+      "artifactName": "TopWatch.msi"
     }
   }
 }
