@@ -33,19 +33,38 @@
     ],
     "win": {
       "target": [
-        "nsis"
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
       ],
       "icon": "assets/icon.png"
     },
     "nsis": {
-      "oneClick": false,
-      "allowToChangeInstallationDirectory": true
+      "oneClick": true,
+      "perMachine": false,
+      "runAfterFinish": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "TopWatch",
+      "artifactName": "TopWatch-Setup.${ext}"
     },
     "linux": {
       "target": [
         "AppImage"
       ],
       "icon": "assets/icon.png"
+    },
+    "portable": {
+      "artifactName": "TopWatch-Portable.${ext}"
     }
   }
 }

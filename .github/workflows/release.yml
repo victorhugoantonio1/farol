@@ -34,6 +34,13 @@ jobs:
 
       - uses: softprops/action-gh-release@v2
         with:
+          generate_release_notes: true
+          body: |
+            **TopWatch-Setup.exe**: instalador. Instala só pro seu usuário (não pede administrador), cria atalho e já abre o app.
+            **TopWatch-Portable.exe**: roda direto, sem instalar.
+
+            O instalador não é assinado digitalmente: no aviso do SmartScreen, clique em **Mais informações → Executar assim mesmo**.
+            Confira o arquivo com o `SHA256SUMS.txt`.
           files: |
             dist/*.exe
             dist/SHA256SUMS.txt

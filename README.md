@@ -26,7 +26,9 @@ Feito pra quem não quer ficar com uma aba do Zabbix aberta o dia inteiro. Outra
 
 ## Instalar
 
-Baixe o instalador `.exe` em [Releases](../../releases). Como o instalador não é assinado digitalmente, o SmartScreen vai mostrar "Editor desconhecido": clique em **Mais informações → Executar assim mesmo**. O instalador é gerado pelo GitHub Actions a partir deste código (veja `.github/workflows/release.yml`).
+Baixe o [**TopWatch-Setup.exe**](https://github.com/victorhugoantonio1/topwatch/releases/latest/download/TopWatch-Setup.exe) e abra. Ele instala só pro seu usuário (não pede administrador), cria o atalho e já abre o app. Não precisa instalar Node nem nada além dele. Se preferir não instalar, use o [**TopWatch-Portable.exe**](https://github.com/victorhugoantonio1/topwatch/releases/latest/download/TopWatch-Portable.exe).
+
+Como o instalador não é assinado digitalmente, o SmartScreen vai mostrar "Editor desconhecido": clique em **Mais informações → Executar assim mesmo**. O instalador é gerado pelo GitHub Actions a partir deste código (veja `.github/workflows/release.yml`).
 
 Ou rode do código:
 
