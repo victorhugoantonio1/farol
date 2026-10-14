@@ -210,14 +210,20 @@ async function fetchAll(zcfg) {
   return { items, errors, servers: servers.length };
 }
 
-// Reconhece (ack) um evento no servidor de onde ele veio.
+const ACK_MESSAGE = 'Reconhecido pelo TopWatch';
+
+// Reconhece (ack) um evento no servidor de onde ele veio, deixando uma mensagem no histórico do
+// problema. Se o perfil do usuário não puder comentar, reconhece sem a mensagem.
 async function acknowledge(server, eventid, message) {
-  const params = { eventids: [String(eventid)], action: 2 }; // 2 = reconhecer
-  if (message) {
-    params.action = 2 | 4; // reconhecer + adicionar mensagem
-    params.message = message;
+  const plain = { eventids: [String(eventid)], action: 2 }; // 2 = reconhecer
+  if (!message) return call(server, 'event.acknowledge', plain);
+  try {
+    return await call(server, 'event.acknowledge', { ...plain, action: 2 | 4, message }); // 4 = adicionar mensagem
+  } catch (err) {
+    const text = `${err.zabbix?.message || ''} ${err.zabbix?.data || ''}`;
+    if (!/permission|not allowed|no access/i.test(text)) throw err;
+    return call(server, 'event.acknowledge', plain);
   }
-  return call(server, 'event.acknowledge', params);
 }
 
 async function test(server, { minSeverity = 2 } = {}) {
@@ -253,6 +259,7 @@ module.exports = {
   fetchProblems,
   fetchAll,
   acknowledge,
+  ACK_MESSAGE,
   test,
   version,
   normalizeApiUrl,

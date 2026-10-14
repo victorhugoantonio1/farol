@@ -12,7 +12,7 @@ Feito pra quem não quer ficar com uma aba do Zabbix aberta o dia inteiro. Outra
 
 - **Luz do TopWatch**: verde quando está tudo calmo, amarela/laranja/vermelha conforme a severidade do pior alerta aberto. Em Alta ou Desastre, um feixe gira em volta da luz.
 - **Pílula inteligente**: recolhida, mostra a contagem (`3 alertas`) ou, se tiver algo grave, direto o que é (`Desastre · srv-app02`).
-- **Card de destaque**: ao abrir, o alerta mais grave vem em cima com **Reconhecer** (ack no Zabbix) e **Abrir**. O resto fica numa lista compacta.
+- **Card de destaque**: ao abrir, o alerta mais grave vem em cima com **Reconhecer** (ack no Zabbix, com a mensagem "Reconhecido pelo TopWatch" no histórico do problema) e **Abrir**. O resto fica numa lista compacta.
 - **Vários Zabbix ao mesmo tempo**: cadastre quantos servidores quiser, de versões diferentes. Os alertas aparecem juntos, cada um com a etiqueta do servidor de onde veio, e o **Reconhecer** vai pro servidor certo. Se um cair, os outros continuam aparecendo.
 - **Notificação do Windows** para problemas novos de severidade Alta ou Desastre.
 - **Vigia**: um robozinho que segue o mouse, olha pra linha sob o cursor, leva susto com alerta novo, fica vermelho no Desastre, acena quando você reconhece e desliga quando está tudo calmo. Clique nele pra cutucar (três vezes rápido e ele dá glitch). Dá pra desligar nas configurações.
@@ -46,7 +46,7 @@ Clique com o botão direito no ícone da bandeja → **Configurações…**
 **Zabbix** (5.4 em diante; testado no 6.0 e no 7.0)
 
 1. Em cada Zabbix: *Usuários → Tokens de API → Criar token*.
-2. Use um usuário dedicado. Leitura basta pra ver os alertas; o botão **Reconhecer** precisa de permissão de escrita nos hosts.
+2. Use um usuário dedicado. Leitura basta pra ver os alertas; o botão **Reconhecer** precisa de permissão de escrita nos hosts. Se o perfil não puder comentar em problemas, ele reconhece sem a mensagem.
 3. Em **+ Adicionar servidor Zabbix**, dê um nome (ex.: `Zabbix 6`), cole a URL do frontend (ex.: `https://zabbix.empresa.local`) e o token. Repita pra cada servidor.
 
 A versão é detectada sozinha: até o 6.2 o token vai no corpo da requisição, do 6.4 em diante vai no cabeçalho `Authorization`. Se um proxy atrapalhar a detecção, force o modo no campo **Autenticação** daquele servidor. A severidade mínima vale pra todos.

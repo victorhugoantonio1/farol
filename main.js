@@ -546,7 +546,7 @@ ipcMain.handle('zabbix:ack', async (e, itemId) => {
     else {
       const server = store.get().zabbix.servers.find((s) => s.id === item.serverId);
       if (!server) return { ok: false, message: 'O servidor desse alerta foi removido das configurações.' };
-      await zabbix.acknowledge(server, item.eventid);
+      await zabbix.acknowledge(server, item.eventid, zabbix.ACK_MESSAGE);
     }
     item.acknowledged = true;
     broadcast();

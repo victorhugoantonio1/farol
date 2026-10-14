@@ -171,6 +171,31 @@ test('Zabbix: Reconhecer chama event.acknowledge com action 2', async () => {
   }
 });
 
+test('Zabbix: Reconhecer com mensagem e, sem permissão de comentar, sem ela', async () => {
+  const seen = [];
+  let canComment = true;
+  const { server, url } = await serve((req, res, raw) => {
+    const body = JSON.parse(raw);
+    seen.push(body.params);
+    if (!canComment && body.params.message) {
+      return json(res, 200, { jsonrpc: '2.0', id: body.id, error: { code: -32500, message: 'Application error.', data: 'No permissions to add problem comments.' } });
+    }
+    json(res, 200, { jsonrpc: '2.0', id: body.id, result: { eventids: body.params.eventids } });
+  });
+  try {
+    const srv = { id: 'z', url, token: 't', auth: 'header' };
+    await zabbix.acknowledge(srv, '901', zabbix.ACK_MESSAGE);
+    assert.deepEqual(seen[0], { eventids: ['901'], action: 6, message: 'Reconhecido pelo TopWatch' });
+    canComment = false;
+    seen.length = 0;
+    await zabbix.acknowledge(srv, '902', zabbix.ACK_MESSAGE);
+    assert.equal(seen.length, 2);
+    assert.deepEqual(seen[1], { eventids: ['902'], action: 2 });
+  } finally {
+    server.close();
+  }
+});
+
 
 // Zabbix falso que se comporta como 6.0 (token só no corpo) ou 7.0 (token no cabeçalho)
 function fakeZabbix(versionString, { failVersion = false, stripHeader = false, noHosts = false } = {}) {
